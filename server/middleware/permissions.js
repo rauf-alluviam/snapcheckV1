@@ -41,15 +41,15 @@ export const checkPermission = (requiredPermission) => {
   };
 };
 
-const checkBuiltInRolePermission = (role, requiredPermission) => {
-  const rolePermissions = {
+const checkBuiltInRolePermission = (role, requiredPermission) => {  const rolePermissions = {
     admin: ['*'],
     approver: [
       'view_inspections',
       'approve_inspections',
       'reject_inspections',
       'view_reports',
-      'create_comments'
+      'create_comments',
+      'create_inspections' // Allow approvers to create inspections
     ],
     inspector: [
       'view_inspections',

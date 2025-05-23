@@ -50,6 +50,25 @@ router.post('/', isAdmin, async (req, res) => {
   }
 });
 
+// @route   GET api/organizations/public
+// @desc    Get a list of organizations for registration purposes (limited info)
+// @access  Public
+router.get('/public', async (req, res) => {
+  try {
+    // Only return essential fields needed for registration, not full organization details
+    const organizations = await Organization.find({}, { 
+      name: 1, 
+      _id: 1,
+      industry: 1 
+    });
+    
+    res.json(organizations);
+  } catch (err) {
+    console.error('Error fetching organizations for registration:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   GET api/organizations
 // @desc    Get all organizations (for super admin only)
 // @access  Private (Admin only)
@@ -116,15 +135,29 @@ router.put('/current', isAdmin, async (req, res) => {
 });
 
 // @route   POST api/organizations/register
-// @desc    Create organization during registration
+// @desc    Register a new organization during user signup
 // @access  Public
 router.post('/register', async (req, res) => {
   try {
-    const { name, address, phone, email, industry, size } = req.body;
+    const { 
+      name, 
+      address, 
+      phone, 
+      email, 
+      industry, 
+      size, 
+      settings 
+    } = req.body;
     
     // Validate input
     if (!name || !address || !phone || !email) {
-      return res.status(400).json({ message: 'Name, address, phone and email are required' });
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+    
+    // Check if organization with same name already exists
+    const existingOrg = await Organization.findOne({ name });
+    if (existingOrg) {
+      return res.status(400).json({ message: 'Organization with this name already exists' });
     }
     
     // Create new organization
@@ -133,8 +166,13 @@ router.post('/register', async (req, res) => {
       address,
       phone,
       email,
-      industry,
-      size: size || 'small'
+      industry: industry || 'Other',
+      size: size || 'small',
+      customRoles: [],
+      settings: {
+        allowUserInvites: settings?.allowUserInvites ?? true,
+        requireApproverReview: settings?.requireApproverReview ?? true
+      }
     });
     
     // Save organization
@@ -142,7 +180,7 @@ router.post('/register', async (req, res) => {
     
     res.status(201).json(organization);
   } catch (err) {
-    console.error('Error creating organization:', err.message);
+    console.error('Error creating organization during registration:', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 });

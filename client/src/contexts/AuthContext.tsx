@@ -3,6 +3,23 @@ import axios from 'axios';
 import api from '../utils/api';
 import { AuthState, AuthResponse } from '../types';
 
+/**
+ * AuthContext provides authentication functionality throughout the application
+ * 
+ * Key features:
+ * - User registration with organization selection/creation
+ * - Login functionality with token management
+ * - Session persistence with token storage
+ * - Automatic token refresh
+ * - Role-based authorization
+ * 
+ * Error handling:
+ * - All authentication functions return result objects with success/error status
+ * - Registration properly handles organization creation errors
+ * - Token expiration is automatically detected and handled
+ * - Clear error messages are provided for common auth issues
+ */
+
 interface AuthContextProps {
   state: AuthState;
   login: (email: string, password: string) => Promise<void>;
@@ -13,7 +30,7 @@ interface AuthContextProps {
     organizationId: string, 
     role: string,
     customRole?: string
-  ) => Promise<void>;
+  ) => Promise<{ success: boolean; data?: any; error?: string }>;
   logout: () => void;
   checkAuth: () => Promise<void>;
 }
@@ -237,6 +254,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         type: ActionType.REGISTER_SUCCESS,
         payload: res.data,
       });
+
+      // Return success result
+      return { success: true, data: res.data };
     } catch (err: any) {
       console.error('Registration error:', err);
       
@@ -246,6 +266,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         type: ActionType.REGISTER_FAIL,
         payload: errorMessage,
       });
+
+      // Return error result
+      return { success: false, error: errorMessage };
     }
   };
 

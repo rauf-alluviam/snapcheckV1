@@ -4,12 +4,12 @@ import { Card, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { useAuth } from '../../contexts/AuthContext';
-import { FilterParams } from '../../types';
+import { FilterParams, Inspection, InspectionApprover } from '../../types';
 import { CalendarIcon, Filter, Plus, Search, AlertCircle } from 'lucide-react';
 import api from '../../utils/api';
 
 // Mock data for inspections
-const mockInspections = [
+const mockInspections: Inspection[] = [
   {
     _id: '1',
     workflowId: '1',
@@ -24,9 +24,17 @@ const mockInspections = [
     organizationId: '1',
     inspectionDate: '2025-04-01',
     createdAt: '2025-04-01T10:00:00Z',
-    updatedAt: '2025-04-01T10:00:00Z'
-  },
-  {
+    updatedAt: '2025-04-01T10:00:00Z',
+    filledSteps: [],
+    inspectorId: '1',
+    approvers: [
+      {
+        userId: '2',
+        userName: 'Jane Smith',
+        status: 'pending'
+      }
+    ]
+  },  {
     _id: '2',
     workflowId: '2',
     workflowName: 'Facility Inspection',
@@ -40,9 +48,17 @@ const mockInspections = [
     organizationId: '1',
     inspectionDate: '2025-03-28',
     createdAt: '2025-03-28T10:00:00Z',
-    updatedAt: '2025-03-28T10:00:00Z'
-  },
-  {
+    updatedAt: '2025-03-28T10:00:00Z',
+    filledSteps: [],
+    inspectorId: '1',
+    approvers: [
+      {
+        userId: '2',
+        userName: 'Jane Smith',
+        status: 'approved'
+      }
+    ]
+  },  {
     _id: '3',
     workflowId: '3',
     workflowName: 'Vehicle Inspection',
@@ -56,9 +72,17 @@ const mockInspections = [
     organizationId: '1',
     inspectionDate: '2025-03-25',
     createdAt: '2025-03-25T10:00:00Z',
-    updatedAt: '2025-03-25T10:00:00Z'
-  },
-  {
+    updatedAt: '2025-03-25T10:00:00Z',
+    filledSteps: [],
+    inspectorId: '3',
+    approvers: [
+      {
+        userId: '2',
+        userName: 'Jane Smith',
+        status: 'rejected'
+      }
+    ]
+  },  {
     _id: '4',
     workflowId: '4',
     workflowName: 'Chair Setup',
@@ -72,9 +96,17 @@ const mockInspections = [
     organizationId: '1',
     inspectionDate: '2025-03-22',
     createdAt: '2025-03-22T10:00:00Z',
-    updatedAt: '2025-03-22T10:00:00Z'
-  },
-  {
+    updatedAt: '2025-03-22T10:00:00Z',
+    filledSteps: [],
+    inspectorId: '4',
+    approvers: [
+      {
+        userId: '2',
+        userName: 'Jane Smith',
+        status: 'pending'
+      }
+    ]
+  },  {
     _id: '5',
     workflowId: '1',
     workflowName: 'Cargo Inspection',
@@ -88,7 +120,16 @@ const mockInspections = [
     organizationId: '1',
     inspectionDate: '2025-03-20',
     createdAt: '2025-03-20T10:00:00Z',
-    updatedAt: '2025-03-20T10:00:00Z'
+    updatedAt: '2025-03-20T10:00:00Z',
+    filledSteps: [],
+    inspectorId: '5',
+    approvers: [
+      {
+        userId: '2',
+        userName: 'Jane Smith',
+        status: 'approved'
+      }
+    ]
   }
 ];
 
@@ -105,8 +146,7 @@ const InspectionsPage: React.FC = () => {
   
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterParams>({organizationId: '', role: ''});
-  const [searchQuery, setSearchQuery] = useState('');
-  const [inspections, setInspections] = useState(mockInspections);
+  const [searchQuery, setSearchQuery] = useState('');  const [inspections, setInspections] = useState<Inspection[]>(mockInspections);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -176,20 +216,42 @@ const InspectionsPage: React.FC = () => {
     if (filters.assignedTo && inspection.assignedToName !== filters.assignedTo) {
       return false;
     }
+
+    // Approver filter
+    if (filters.approverId) {
+      // Check if the inspection has the approver in its list
+      if (inspection.approverId === filters.approverId) {
+        return true;
+      }
+      
+      // Also check in the approvers array if it exists
+      if (inspection.approvers && Array.isArray(inspection.approvers)) {
+        return inspection.approvers.some(
+          approver => approver.userId === filters.approverId
+        );
+      }
+      return false;
+    }
     
     return true;
-  });
-  // Filter inspections based on user role
+  });  // Filter inspections based on user role
   const userInspections = React.useMemo(() => {
     if (!user) return [];
     
+    const userId = user._id;
+    
     switch (user.role) {
       case 'admin':
-        return filteredInspections; // Admin sees all inspections
+        return filteredInspections; // Admin sees all inspections      
       case 'approver':
-        return filteredInspections.filter(insp => insp.approverId === user._id);
+        // Show inspections where the user is an approver or where they created the inspection
+        return filteredInspections.filter(insp => 
+          insp.approverId === userId || 
+          insp.assignedTo === userId ||
+          insp.approvers?.some(approver => approver.userId === userId)
+        );
       case 'inspector':
-        return filteredInspections.filter(insp => insp.assignedTo === user._id);
+        return filteredInspections.filter(insp => insp.assignedTo === userId);
       default:
         return [];
     }
@@ -230,8 +292,7 @@ const InspectionsPage: React.FC = () => {
             onClick={() => setShowFilters(!showFilters)}
           >
             Filters
-          </Button>
-          {isAdmin && (
+          </Button>          {(isAdmin || user?.role === 'approver' || user?.role === 'inspector') && (
             <Link to="/inspections/new">
               <Button variant="primary" leftIcon={<Plus size={16} />}>
                 New Inspection
@@ -376,29 +437,39 @@ const InspectionsPage: React.FC = () => {
                         <p className="text-sm text-gray-500 mt-1">
                           {inspection.inspectionType}
                         </p>
+                      </div>                      <div className="flex flex-col gap-1">
+                        <Badge 
+                          variant={
+                            inspection.status === 'approved' 
+                              ? 'success' 
+                              : inspection.status === 'rejected'
+                                ? 'danger'
+                                : 'warning'
+                          }
+                        >
+                          {inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
+                        </Badge>                        {inspection.status === 'pending' && 
+                         (inspection.assignedTo === inspection.approverId || 
+                          inspection.approvers?.some(a => a.userId === inspection.assignedTo)) && (
+                          <Badge variant="warning" className="text-xs">
+                            Needs Admin Approval
+                          </Badge>
+                        )}
                       </div>
-                      <Badge 
-                        variant={
-                          inspection.status === 'approved' 
-                            ? 'success' 
-                            : inspection.status === 'rejected'
-                              ? 'danger'
-                              : 'warning'
-                        }
-                      >
-                        {inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
-                      </Badge>
                     </div>
                     
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <div className="flex justify-between text-sm">
+                    <div className="mt-4 pt-4 border-t border-gray-200">                      <div className="flex justify-between text-sm">
                         <div>
                           <p className="text-gray-500">Inspector</p>
                           <p className="font-medium text-gray-900">{inspection.assignedToName}</p>
                         </div>
                         <div>
-                          <p className="text-gray-500">Approver</p>
-                          <p className="font-medium text-gray-900">{inspection.approverName}</p>
+                          <p className="text-gray-500">Approvers</p>
+                          <p className="font-medium text-gray-900">
+                            {inspection.approverName}
+                            {inspection.approvers && inspection.approvers.length > 1 && 
+                              ` + ${inspection.approvers.length - 1} more`}
+                          </p>
                         </div>
                       </div>
                       

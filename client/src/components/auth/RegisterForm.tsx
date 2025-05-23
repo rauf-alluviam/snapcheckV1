@@ -8,6 +8,27 @@ import Select from '../ui/Select';
 import { Mail, Lock, User, Building, Phone, Globe } from 'lucide-react';
 import api from '../../utils/api';
 
+/**
+ * RegisterForm Component
+ * 
+ * This component handles user registration with organization selection or creation.
+ * 
+ * Key features:
+ * - User can join an existing organization (loaded from public API endpoint)
+ * - User can create a new organization during registration
+ * - Role selection with support for custom roles
+ * - Comprehensive form validation with react-hook-form
+ * - Error handling for organization loading and creation
+ * - Loading states for async operations
+ * 
+ * Flow:
+ * 1. Form loads existing organizations from the public API endpoint
+ * 2. User either selects an existing organization or creates a new one
+ * 3. If creating a new org, the component first creates the organization
+ * 4. Then registers the user with the selected/created organization
+ * 5. On success, redirects to dashboard
+ */
+
 interface RegisterFormInputs {
   name: string;
   email: string;
@@ -26,12 +47,11 @@ interface RegisterFormInputs {
 }
 
 const RegisterForm: React.FC = () => {
-  const { register: registerUser, state } = useAuth();
-  const { loading, error } = state;
-  const navigate = useNavigate();
+  const { register: registerUser, state } = useAuth();  const { loading, error } = state;  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [organizations, setOrganizations] = useState<Array<{ value: string; label: string; }>>([]);
-  const [isCreatingOrg, setIsCreatingOrg] = useState(false);
+  const [loadingOrgs, setLoadingOrgs] = useState(true);
+  const [orgLoadError, setOrgLoadError] = useState<string | null>(null);
   
   const { 
     register, 
@@ -43,22 +63,32 @@ const RegisterForm: React.FC = () => {
   const password = watch('password');  const onSubmit = async (data: RegisterFormInputs) => {
     try {
       let organizationId = data.organizationId;
-
+      
       // If creating a new organization
       if (data.createNewOrg) {
-        const orgResponse = await api.post('${process.env.VITE_APP_API_STRING}/organizations/register', {
-          name: data.orgName,
-          address: data.orgAddress,
-          phone: data.orgPhone,
-          email: data.orgEmail,
-          industry: data.orgIndustry,
-          size: data.orgSize,
-          settings: {
-            allowUserInvites: true,
-            requireApproverReview: true
-          }
-        });
-        organizationId = orgResponse.data._id;
+        try {
+          console.log('Creating new organization:', data.orgName);
+          const orgResponse = await api.post('/api/organizations/register', {
+            name: data.orgName,
+            address: data.orgAddress,
+            phone: data.orgPhone,
+            email: data.orgEmail,
+            industry: data.orgIndustry,
+            size: data.orgSize,
+            settings: {
+              allowUserInvites: true,
+              requireApproverReview: true
+            }
+          });
+          organizationId = orgResponse.data._id;
+          console.log('Organization created successfully:', orgResponse.data);
+        } catch (orgError: any) {
+          console.error('Failed to create organization:', orgError);
+          throw new Error(
+            orgError.response?.data?.message || 
+            'Failed to create organization. Please try again.'
+          );
+        }
       }
 
       // Handle custom roles
@@ -69,9 +99,10 @@ const RegisterForm: React.FC = () => {
         role = 'custom';
         customRole = data.role.split(':')[1];
       }
-
+      
       // Register user with organization
-      await registerUser(
+      console.log('Registering user with organization:', organizationId);
+      const result = await registerUser(
         data.name,
         data.email,
         data.password,
@@ -79,22 +110,43 @@ const RegisterForm: React.FC = () => {
         role,
         customRole
       );
-      navigate('/dashboard');
-    } catch (err) {
+      
+      if (result && result.success) {
+        console.log('Registration successful, redirecting to dashboard');
+        navigate('/dashboard');
+      } else {
+        console.error('Registration failed:', result?.error);
+        // Error will be handled by AuthContext and shown via error state
+      }
+    } catch (err: any) {
       console.error('Registration failed:', err);
+      // The error will be handled by the AuthContext and displayed via the error state
     }
-  };
-  // Load organizations on component mount
+  };  // Load organizations on component mount
   useEffect(() => {
     const loadOrganizations = async () => {
+      setLoadingOrgs(true);
+      setOrgLoadError(null);
       try {
-        const response = await api.get('/api/organizations');
-        setOrganizations(response.data.map((org: any) => ({
-          value: org._id,
-          label: org.name
-        })));
+        // Use the public endpoint that doesn't require authentication
+        const response = await api.get('/api/organizations/public');
+        
+        if (response.data && Array.isArray(response.data)) {
+          setOrganizations(response.data.map((org: any) => ({
+            value: org._id,
+            label: org.name
+          })));
+          console.log('Organizations loaded:', response.data.length);
+        } else {
+          console.error('Invalid organization data format:', response.data);
+          setOrganizations([]);
+          setOrgLoadError('Unable to load organizations. Please try again later.');
+        }
       } catch (error) {
         console.error('Failed to load organizations:', error);
+        setOrgLoadError('Failed to load organizations. Please check your connection and try again.');
+      } finally {
+        setLoadingOrgs(false);
       }
     };
 
@@ -204,12 +256,11 @@ const RegisterForm: React.FC = () => {
           error={errors.confirmPassword?.message}
           leftAddon={<Lock className="ml-3 h-5 w-5 text-gray-400" />}
         />
-          <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <input
+          <div className="space-y-4">          <div className="flex items-center space-x-2">            <input
               type="checkbox"
               id="createNewOrg"
               className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              checked={watch('createNewOrg')}
               {...register('createNewOrg')}
             />
             <label htmlFor="createNewOrg" className="text-sm text-gray-700">
@@ -282,16 +333,44 @@ const RegisterForm: React.FC = () => {
                 {...register('orgSize', { required: 'Organization size is required' })}
                 error={errors.orgSize?.message}
               />
+            </>          ) : (
+            <>
+              {loadingOrgs ? (
+                <div className="flex items-center justify-center p-4 border border-gray-200 rounded-md">
+                  <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent mr-2"></div>
+                  <span className="text-gray-600">Loading organizations...</span>
+                </div>
+              ) : orgLoadError ? (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm mb-4">
+                  {orgLoadError}                  <button 
+                    onClick={() => {
+                      // Set the createNewOrg field to true
+                      const createNewOrgField = 'createNewOrg';
+                      const event = { target: { name: createNewOrgField, value: true } };
+                      register(createNewOrgField).onChange(event);
+                    }}
+                    className="ml-2 text-blue-500 hover:text-blue-700 underline"
+                  >
+                    Create a new organization instead
+                  </button>
+                </div>
+              ) : (
+                <Select
+                  label="Organization"
+                  options={organizations}
+                  {...register('organizationId', { 
+                    required: 'Please select an organization or create a new one'
+                  })}
+                  error={errors.organizationId?.message}
+                />
+              )}
+              
+              {organizations.length === 0 && !loadingOrgs && !orgLoadError && (
+                <div className="text-sm text-gray-600 mt-1">
+                  No organizations available. Please create a new one.
+                </div>
+              )}
             </>
-          ) : (
-            <Select
-              label="Organization"
-              options={organizations}
-              {...register('organizationId', { 
-                required: 'Please select an organization or create a new one'
-              })}
-              error={errors.organizationId?.message}
-            />
           )}
         </div>
         

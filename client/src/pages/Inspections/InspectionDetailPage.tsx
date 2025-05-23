@@ -5,7 +5,7 @@ import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import TextArea from '../../components/ui/TextArea';
 import { useAuth } from '../../contexts/AuthContext';
-import { CalendarIcon, Download, User, CheckCircle, XCircle } from 'lucide-react';
+import { CalendarIcon, Download, User, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import api from '../../utils/api';
 import { Inspection } from '../../types';
@@ -38,14 +38,14 @@ const InspectionDetailPage: React.FC = () => {
 
     fetchInspection();
   }, [id]);
-
   const handleApprove = async () => {
     try {
-      await api.put(`${process.env.VITE_APP_API_STRING}/inspections/${id}/approve`, { remarks });
+      await api.put(`/api/inspections/${id}/approve`, { remarks });
       setInspection(prev => prev ? { ...prev, status: 'approved' } : null);
       setShowApproveModal(false);
       setRemarks('');
     } catch (err) {
+      console.error("Approval error:", err);
       setError('Failed to approve inspection');
     }
   };
@@ -101,10 +101,32 @@ const InspectionDetailPage: React.FC = () => {
       </div>
     );
   }
-
-  const isApprover = user?.role === 'approver' && inspection.approverId === user._id;
   const isAdmin = user?.role === 'admin';
-  const canApprove = (isApprover || isAdmin) && inspection.status === 'pending';
+  const isPrimaryApprover = user?.role === 'approver' && inspection.approverId === user._id;
+  
+  // Check if user is in the approvers list
+  const isInApproversList = user?.role === 'approver' && 
+    inspection.approvers?.some(approver => approver.userId === user._id);
+  
+  // User can approve if they are an admin, the primary approver, or in the approvers list
+  const isApprover = isPrimaryApprover || isInApproversList;
+  
+  // Get this specific approver's status if they're in the list
+  const currentApproverStatus = user?._id ? 
+    inspection.approvers?.find(approver => approver.userId === user._id)?.status : undefined;
+  
+  // Can approve if admin, or approver with pending status, and overall inspection status is pending
+  const canApprove = (isAdmin || (isApprover && currentApproverStatus !== 'approved')) 
+    && inspection.status === 'pending';
+
+  // Check if this inspection was created by an approver and needs admin approval
+  const isCreatedByApprover = inspection.assignedTo === inspection.approverId ||
+    (inspection.approvers?.some(approver => approver.userId === inspection.assignedTo));
+
+  // Find admin approver
+  const adminApprover = inspection.approvers?.find(approver => 
+    approver.userName?.toLowerCase().includes('admin')
+  );
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -114,6 +136,15 @@ const InspectionDetailPage: React.FC = () => {
             {inspection.workflowName}
           </h1>
           <p className="text-sm text-gray-500">ID: {inspection._id}</p>
+          
+          {isCreatedByApprover && inspection.status === 'pending' && (
+            <div className="mt-2 flex items-center text-amber-600 bg-amber-50 px-3 py-2 rounded-md">
+              <AlertCircle size={16} className="mr-2" />
+              <p className="text-sm font-medium">
+                This inspection was created by an approver and requires admin approval
+              </p>
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <Button
@@ -163,7 +194,11 @@ const InspectionDetailPage: React.FC = () => {
                   }
                 >
                   {inspection.status.toUpperCase()}
-                </Badge>
+                </Badge>                {isCreatedByApprover && inspection.status === 'pending' && (
+                  <Badge variant="warning" className="ml-2">
+                    Requires Admin Approval
+                  </Badge>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Category</label>
@@ -194,16 +229,49 @@ const InspectionDetailPage: React.FC = () => {
                 <label className="text-sm font-medium text-gray-500">Inspector</label>
                 <p className="flex items-center">
                   <User className="h-4 w-4 mr-1" />
-                  {inspection.assignedToName}
+                  {inspection.assignedToName}                  {isCreatedByApprover && inspection.assignedTo === inspection.approverId && (
+                    <Badge variant="secondary" className="ml-2 text-xs">Created by Approver</Badge>
+                  )}
                 </p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Approver</label>
+              </div>              <div>
+                <label className="text-sm font-medium text-gray-500">Primary Approver</label>
                 <p className="flex items-center">
                   <User className="h-4 w-4 mr-1" />
                   {inspection.approverName}
                 </p>
               </div>
+              
+              {inspection.approvers && inspection.approvers.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium text-gray-500">All Approvers</label>
+                  <div className="space-y-2 mt-1">
+                    {inspection.approvers.map(approver => (
+                      <div key={approver.userId} className="flex justify-between items-center text-sm">
+                        <div className="flex items-center">
+                          <User className="h-4 w-4 mr-1 text-gray-500" />
+                          <span>{approver.userName || 'Unknown'}</span>                          {approver.userId === inspection.assignedTo && (
+                            <Badge variant="secondary" className="ml-2 text-xs">Creator</Badge>
+                          )}                          {adminApprover?.userId === approver.userId && isCreatedByApprover && (
+                            <Badge variant="warning" className="ml-2 text-xs">Admin Approval Required</Badge>
+                          )}
+                        </div>
+                        <Badge
+                          variant={
+                            approver.status === 'approved'
+                              ? 'success'
+                              : approver.status === 'rejected'
+                                ? 'danger'
+                                : 'warning'
+                          }
+                          className="text-xs"
+                        >
+                          {approver.status.toUpperCase()}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

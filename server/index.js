@@ -29,7 +29,21 @@ const __dirname = path.dirname(__filename);
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors());
+
+// Configure CORS for both development and production
+app.use(cors({
+  origin: [
+    'http://localhost:3000',               // Local development
+    'http://localhost:5173',               // Vite dev server
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
+    'https://localhost:3000',
+    process.env.FRONTEND_URL || '*',       // Production frontend URL from env
+    'https://snapcheckv1.s3-website.ap-south-1.amazonaws.com', // S3 bucket URL
+    'http://snapcheckv1.s3-website.ap-south-1.amazonaws.com'   // S3 bucket URL (non-HTTPS)
+  ],
+  credentials: true
+}));
 
 // Static files folder
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));

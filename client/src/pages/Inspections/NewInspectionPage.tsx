@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../comp
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
+import MultiSelect from '../../components/ui/MultiSelect';
 import { useAuth } from '../../contexts/AuthContext';
 import { Camera } from 'lucide-react';
 import api from '../../utils/api';
@@ -30,7 +31,8 @@ interface Workflow {
 
 interface FormValues {
   workflowId: string;
-  approverId: string;
+  approverId: string; // Main approver (for backward compatibility)
+  approverIds: string[]; // Multiple approvers
   inspectionDate: string;
   steps: {
     stepId: string;
@@ -90,8 +92,7 @@ const NewInspectionPage: React.FC = () => {
 
     fetchData();
   }, []);
-  
-  const { 
+    const { 
     register, 
     handleSubmit, 
     control,
@@ -101,7 +102,8 @@ const NewInspectionPage: React.FC = () => {
   } = useForm<FormValues>({
     defaultValues: {
       inspectionDate: new Date().toISOString().split('T')[0],
-      steps: []
+      steps: [],
+      approverIds: []
     }
   });
   
@@ -141,6 +143,10 @@ const onSubmit = async (data: FormValues) => {
       throw new Error('All inspection details are required');
     }
     
+    // Create combined list of approvers without duplicates
+    const allApproverIds = new Set([data.approverId, ...(data.approverIds || [])]);
+    const uniqueApproverIds = Array.from(allApproverIds);
+    
     // Validate steps data
     if (!Array.isArray(data.steps) || data.steps.length === 0) {
       throw new Error('No workflow steps found');
@@ -161,11 +167,11 @@ const onSubmit = async (data: FormValues) => {
     // Get auth token
     const token = localStorage.getItem('token');
     if (!token) throw new Error('Authentication token not found');
-    
-    // Prepare the inspection data with stepTitle included
+      // Prepare the inspection data with stepTitle included
     const inspectionData = {
       workflowId: data.workflowId,
-      approverId: data.approverId,
+      approverId: data.approverId, // Primary approver (for backward compatibility)
+      approverIds: uniqueApproverIds, // All approvers including the primary one
       inspectionDate: data.inspectionDate,
       filledSteps: data.steps.map(step => {
         // Find the corresponding step in the workflow to get its title
@@ -243,13 +249,20 @@ const onSubmit = async (data: FormValues) => {
                       {...register('workflowId', { required: 'Workflow is required' })}
                       error={errors.workflowId?.message}
                     />
-                    
-                    <Select
-                      label="Approver"
+                      <Select
+                      label="Primary Approver"
                       options={approvers}
-                      {...register('approverId', { required: 'Approver is required' })}
+                      {...register('approverId', { required: 'Primary approver is required' })}
                       error={errors.approverId?.message}
                     />
+                      <div>
+                      <MultiSelect
+                        label="Additional Approvers (Optional)"
+                        helperText="Hold Ctrl/Cmd key to select multiple approvers. Both AppRiver admin and selected approvers can approve the inspection."
+                        options={approvers}
+                        {...register('approverIds')}
+                      />
+                    </div>
                     
                     <Input
                       label="Inspection Date"

@@ -43,12 +43,32 @@ const InspectionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
-  },
+  },  // Single primary approver (for backward compatibility)
   approverId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
+  // Multiple approvers with their approval status
+  approvers: [{
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    },
+    remarks: {
+      type: String,
+      default: ''
+    },
+    actionDate: {
+      type: Date
+    }
+  }],
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],

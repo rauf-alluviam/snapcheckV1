@@ -47,6 +47,14 @@ export interface FilledStep {
   timestamp: string;
 }
 
+export interface InspectionApprover {
+  userId: string;
+  userName?: string; // Added during API transformation
+  status: 'pending' | 'approved' | 'rejected';
+  remarks?: string;
+  actionDate?: string;
+}
+
 export interface Inspection {
   _id: string;
   workflowId: string;
@@ -59,6 +67,7 @@ export interface Inspection {
   inspectorId: string; // Added for explicit inspector tracking
   approverId: string;
   approverName?: string;
+  approvers?: InspectionApprover[]; // Added for multiple approvers
   status: 'pending' | 'approved' | 'rejected';
   organizationId: string;
   inspectionDate: string;

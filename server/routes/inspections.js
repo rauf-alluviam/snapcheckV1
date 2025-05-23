@@ -84,7 +84,8 @@ router.get('/:id', auth, async (req, res) => {
   try {
     const inspection = await Inspection.findById(req.params.id)
       .populate('assignedTo', 'name')
-      .populate('approverId', 'name');
+      .populate('approverId', 'name')
+      .populate('approvers.userId', 'name'); // Populate approvers with user info
     
     if (!inspection) {
       return res.status(404).json({ message: 'Inspection not found' });
@@ -101,15 +102,26 @@ router.get('/:id', auth, async (req, res) => {
     } else if (req.user.role === 'approver' && inspection.approverId._id.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Access denied. You can only view inspections you are assigned to approve.' });
     }
+      // Transform inspection to include assignedToName and approverName
+    const { assignedTo, approverId, approvers = [], ...rest } = inspection.toObject();
     
-    // Transform inspection to include assignedToName and approverName
-    const { assignedTo, approverId, ...rest } = inspection.toObject();
+    // Transform approvers to include userName
+    const transformedApprovers = approvers.map(approver => {
+      const { userId, ...approverRest } = approver;
+      return {
+        ...approverRest,
+        userId: userId._id || userId, // Handle both populated and unpopulated
+        userName: userId.name || 'Unknown User'
+      };
+    });
+    
     const transformedInspection = {
       ...rest,
       assignedTo: assignedTo._id,
       assignedToName: assignedTo.name,
       approverId: approverId._id,
-      approverName: approverId.name
+      approverName: approverId.name,
+      approvers: transformedApprovers
     };
     
     res.json(transformedInspection);
@@ -133,6 +145,7 @@ router.post('/', auth, async (req, res) => {
       workflowId, 
       filledSteps,
       approverId,
+      approverIds = [], // New field for multiple approvers
       inspectionDate
     } = req.body;
     
@@ -152,12 +165,52 @@ router.post('/', auth, async (req, res) => {
     if (workflow.organizationId.toString() !== req.user.organizationId) {
       return res.status(403).json({ message: 'Access denied' });
     }
-    
-    // Validate that the approver exists and is from the same organization
+      // Validate that the primary approver exists and is from the same organization
     const approver = await User.findById(approverId);
     
     if (!approver || approver.organizationId.toString() !== req.user.organizationId) {
-      return res.status(400).json({ message: 'Invalid approver' });
+      return res.status(400).json({ message: 'Invalid primary approver' });
+    }
+    
+    // Create list of unique approver IDs
+    const uniqueApproverIds = Array.from(new Set([approverId, ...approverIds]));
+    
+    // Validate all approvers
+    const approvers = await User.find({ 
+      _id: { $in: uniqueApproverIds },
+      organizationId: req.user.organizationId
+    });
+    
+    // Check if all approvers were found
+    if (approvers.length !== uniqueApproverIds.length) {
+      return res.status(400).json({ message: 'One or more invalid approvers' });
+    }
+      // Create approvers array for the inspection
+    const approversData = approvers.map(approver => ({
+      userId: approver._id,
+      status: 'pending'
+    }));
+    
+    // If the user creating the inspection is an approver, add an admin as approver
+    if (req.user.role === 'approver') {
+      // Find an admin user from the same organization
+      const adminUsers = await User.find({
+        organizationId: req.user.organizationId,
+        role: 'admin'
+      }).limit(1);
+      
+      if (adminUsers.length > 0) {
+        const adminUser = adminUsers[0];
+        
+        // Check if admin is already in approvers list
+        if (!uniqueApproverIds.includes(adminUser._id.toString())) {
+          // Add admin to approvers if not already included
+          approversData.push({
+            userId: adminUser._id,
+            status: 'pending'
+          });
+        }
+      }
     }
     
     // Create new inspection
@@ -168,7 +221,8 @@ router.post('/', auth, async (req, res) => {
       inspectionType: workflow.name,
       filledSteps,
       assignedTo: req.user.id,
-      approverId,
+      approverId, // Keep for backward compatibility
+      approvers: approversData, // Add the array of approvers (now possibly including admin)
       status: 'pending',
       organizationId: req.user.organizationId,
       inspectionDate: new Date(inspectionDate)
@@ -201,16 +255,61 @@ router.put('/:id/approve', isAdminOrApprover, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
     
-    // Check if the user is the assigned approver or an admin
-    if (req.user.role === 'approver' && inspection.approverId.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Access denied. You can only approve inspections assigned to you.' });
+    // Check if the user can approve this inspection
+    let canApprove = false;
+    
+    // Admin can always approve
+    if (req.user.role === 'admin') {
+      canApprove = true;
+    } else if (req.user.role === 'approver') {
+      // Check if this user is in the list of approvers
+      const isInApproversList = inspection.approvers.some(
+        approver => approver.userId.toString() === req.user.id
+      );
+      
+      // Also check the legacy approverId field for backward compatibility
+      const isPrimaryApprover = inspection.approverId.toString() === req.user.id;
+      
+      canApprove = isInApproversList || isPrimaryApprover;
     }
     
-    // Approve inspection
-    inspection.status = 'approved';
-    inspection.remarks = remarks || '';
-    inspection.approvedAt = new Date();
-    inspection.approvedBy = req.user.id;
+    if (!canApprove) {
+      return res.status(403).json({ 
+        message: 'Access denied. You can only approve inspections assigned to you.' 
+      });
+    }
+    
+    // Mark the current user's approval in the approvers array
+    const approverIndex = inspection.approvers.findIndex(
+      approver => approver.userId.toString() === req.user.id
+    );
+    
+    if (approverIndex !== -1) {
+      inspection.approvers[approverIndex].status = 'approved';
+      inspection.approvers[approverIndex].remarks = remarks || '';
+      inspection.approvers[approverIndex].actionDate = new Date();
+    } else {
+      // Add this approver if not already in the list (for backward compatibility)
+      inspection.approvers.push({
+        userId: req.user.id,
+        status: 'approved',
+        remarks: remarks || '',
+        actionDate: new Date()
+      });
+    }
+    
+    // Check if all approvers have approved
+    const allApproved = inspection.approvers.every(
+      approver => approver.status === 'approved'
+    );
+    
+    // If admin approves or all designated approvers have approved, mark the inspection as approved
+    if (req.user.role === 'admin' || allApproved) {
+      inspection.status = 'approved';
+      inspection.remarks = remarks || '';
+      inspection.approvedAt = new Date();
+      inspection.approvedBy = req.user.id;
+    }
     
     await inspection.save();
     
@@ -243,12 +342,50 @@ router.put('/:id/reject', isAdminOrApprover, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
     
-    // Check if the user is the assigned approver or an admin
-    if (req.user.role === 'approver' && inspection.approverId.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Access denied. You can only reject inspections assigned to you.' });
+    // Check if the user can reject this inspection
+    let canReject = false;
+    
+    // Admin can always reject
+    if (req.user.role === 'admin') {
+      canReject = true;
+    } else if (req.user.role === 'approver') {
+      // Check if this user is in the list of approvers
+      const isInApproversList = inspection.approvers.some(
+        approver => approver.userId.toString() === req.user.id
+      );
+      
+      // Also check the legacy approverId field for backward compatibility
+      const isPrimaryApprover = inspection.approverId.toString() === req.user.id;
+      
+      canReject = isInApproversList || isPrimaryApprover;
     }
     
-    // Reject inspection
+    if (!canReject) {
+      return res.status(403).json({ 
+        message: 'Access denied. You can only reject inspections assigned to you.' 
+      });
+    }
+    
+    // Mark the current user's rejection in the approvers array
+    const approverIndex = inspection.approvers.findIndex(
+      approver => approver.userId.toString() === req.user.id
+    );
+    
+    if (approverIndex !== -1) {
+      inspection.approvers[approverIndex].status = 'rejected';
+      inspection.approvers[approverIndex].remarks = remarks;
+      inspection.approvers[approverIndex].actionDate = new Date();
+    } else {
+      // Add this approver if not already in the list (for backward compatibility)
+      inspection.approvers.push({
+        userId: req.user.id,
+        status: 'rejected',
+        remarks: remarks,
+        actionDate: new Date()
+      });
+    }
+    
+    // If admin rejects or any of the designated approvers rejects, mark the inspection as rejected
     inspection.status = 'rejected';
     inspection.remarks = remarks;
     inspection.rejectedAt = new Date();
@@ -304,12 +441,29 @@ router.get('/:id/report', auth, async (req, res) => {
     doc.fontSize(12).text(`Status: ${inspection.status.toUpperCase()}`);
     doc.fontSize(12).text(`Date: ${new Date(inspection.inspectionDate).toLocaleDateString()}`);
     doc.moveDown();
-    
-    // Participants
+      // Participants
     doc.fontSize(14).text('Participants', { underline: true });
     doc.moveDown(0.5);
     doc.fontSize(12).text(`Inspector: ${inspection.assignedTo.name}`);
-    doc.fontSize(12).text(`Approver: ${inspection.approverId.name}`);
+    doc.fontSize(12).text(`Primary Approver: ${inspection.approverId.name}`);
+    
+    // List all approvers with their status
+    if (inspection.approvers && inspection.approvers.length > 0) {
+      doc.moveDown(0.5);
+      doc.fontSize(12).text('All Approvers:');
+      inspection.approvers.forEach(approver => {
+        const userName = approver.userId.name || 'Unknown User';
+        const status = approver.status.toUpperCase();
+        doc.fontSize(10).text(`- ${userName}: ${status}`);
+        if (approver.remarks) {
+          doc.fontSize(9).text(`  Remarks: ${approver.remarks}`, { indent: 10 });
+        }
+        if (approver.actionDate) {
+          doc.fontSize(9).text(`  Date: ${new Date(approver.actionDate).toLocaleString()}`, { indent: 10 });
+        }
+      });
+    }
+    
     doc.moveDown();
     
     // Inspection steps
