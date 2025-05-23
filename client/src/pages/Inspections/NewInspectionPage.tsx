@@ -130,32 +130,92 @@ const NewInspectionPage: React.FC = () => {
     }
   }, [watchedWorkflowId, replace, workflows]);
   
-  const onSubmit = async (data: FormValues) => {
-    setIsSubmitting(true);
+const onSubmit = async (data: FormValues) => {
+  setIsSubmitting(true);
+  
+  try {
+    console.log('Submitting inspection with data:', data);
     
-    try {
-      console.log('Submitting inspection with data:', data);
+    // Validate all required fields
+    if (!data.workflowId || !data.approverId || !data.inspectionDate) {
+      throw new Error('All inspection details are required');
+    }
+    
+    // Validate steps data
+    if (!Array.isArray(data.steps) || data.steps.length === 0) {
+      throw new Error('No workflow steps found');
+    }
+    
+    // Check if media is uploaded for required steps
+    if (selectedWorkflow) {
+      const mediaRequiredSteps = selectedWorkflow.steps.filter(step => step.mediaRequired);
       
-      // Submit the inspection with the uploaded file URLs
-      const response = await api.post('/api/inspections', {
-        workflowId: data.workflowId,
-        approverId: data.approverId,
-        inspectionDate: data.inspectionDate,
-        steps: data.steps.map(step => ({
+      for (const requiredStep of mediaRequiredSteps) {
+        const filledStep = data.steps.find(s => s.stepId === requiredStep._id);
+        if (!filledStep || !filledStep.mediaUrls || filledStep.mediaUrls.length === 0) {
+          throw new Error(`Media is required for step: ${requiredStep.title}`);
+        }
+      }
+    }
+    
+    // Get auth token
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Authentication token not found');
+    
+    // Prepare the inspection data with stepTitle included
+    const inspectionData = {
+      workflowId: data.workflowId,
+      approverId: data.approverId,
+      inspectionDate: data.inspectionDate,
+      filledSteps: data.steps.map(step => {
+        // Find the corresponding step in the workflow to get its title
+        const workflowStep = selectedWorkflow?.steps.find(ws => ws._id === step.stepId);
+        return {
           stepId: step.stepId,
-          responseText: step.responseText,
-          mediaUrls: step.mediaUrls
-        }))
+          stepTitle: workflowStep?.title || 'Unknown Step', // Add the required stepTitle field
+          responseText: step.responseText || '',
+          mediaUrls: step.mediaUrls || [], // Ensure mediaUrls is always an array
+          timestamp: new Date().toISOString() // Add timestamp
+        };
+      })
+    };
+    
+    console.log('Sending inspection data:', JSON.stringify(inspectionData));
+      // Submit using centralized API configuration for better URL handling
+    const { buildApiUrl } = await import('../../utils/apiConfig');
+    const response = await fetch(buildApiUrl('/inspections'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(inspectionData)
+    });
+    
+    // Check for error responses
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Server returned error:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData
       });
       
-      console.log('Inspection submitted successfully:', response.data);
-      navigate('/inspections');
-    } catch (error) {
-      console.error('Error submitting inspection:', error);
-      setError(error instanceof Error ? error.message : 'Failed to submit inspection');
-      setIsSubmitting(false);
+      throw new Error(
+        errorData.message || 
+        `Server error: ${response.status} ${response.statusText}`
+      );
     }
-  };
+    
+    const responseData = await response.json();
+    console.log('Inspection submitted successfully:', responseData);
+    navigate('/inspections');
+  } catch (error) {
+    console.error('Error submitting inspection:', error);
+    setError(error instanceof Error ? error.message : 'Failed to submit inspection');
+    setIsSubmitting(false);
+  }
+};
   
   return (
     <div className="space-y-6">
@@ -286,24 +346,13 @@ const NewInspectionPage: React.FC = () => {
                                       if (files && files.length > 0) {
                                         const formData = new FormData();
                                         formData.append('media', files[0]);
-                                        
-                                        try {
-                                          const token = localStorage.getItem('token');
-                                          if (!token) throw new Error('No auth token');
+                                          try {
+                                          // Use the centralized upload function for consistency
+                                          const { uploadFiles } = await import('../../utils/apiConfig');
+                                          const urls = await uploadFiles([files[0]]);
                                           
-                                          const response = await fetch('http://localhost:5000/api/media/upload', {
-                                            method: 'POST',
-                                            headers: {
-                                              'Authorization': `Bearer ${token}`
-                                            },
-                                            body: formData
-                                          });
-                                          
-                                          if (!response.ok) throw new Error('Upload failed');
-                                          
-                                          const data = await response.json();
-                                          console.log('Camera upload successful:', data);
-                                          setValue(`steps.${index}.mediaUrls`, data.urls);
+                                          console.log('Camera upload successful:', { urls });
+                                          setValue(`steps.${index}.mediaUrls`, urls);
                                         } catch (error) {
                                           console.error('Camera upload failed:', error);
                                           setError('Failed to upload camera image');

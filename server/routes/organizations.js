@@ -9,7 +9,16 @@ const router = express.Router();
 // @access  Private (Admin only)
 router.post('/', isAdmin, async (req, res) => {
   try {
-    const { name, address, phone, email } = req.body;
+    const { 
+      name, 
+      address, 
+      phone, 
+      email, 
+      industry, 
+      size, 
+      customRoles, 
+      settings 
+    } = req.body;
     
     // Validate input
     if (!name || !address || !phone || !email) {
@@ -21,7 +30,14 @@ router.post('/', isAdmin, async (req, res) => {
       name,
       address,
       phone,
-      email
+      email,
+      industry,
+      size: size || 'small',
+      customRoles: customRoles || [],
+      settings: {
+        allowUserInvites: settings?.allowUserInvites ?? true,
+        requireApproverReview: settings?.requireApproverReview ?? true
+      }
     });
     
     // Save organization
@@ -95,6 +111,137 @@ router.put('/current', isAdmin, async (req, res) => {
     res.json(organization);
   } catch (err) {
     console.error('Error updating organization:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST api/organizations/register
+// @desc    Create organization during registration
+// @access  Public
+router.post('/register', async (req, res) => {
+  try {
+    const { name, address, phone, email, industry, size } = req.body;
+    
+    // Validate input
+    if (!name || !address || !phone || !email) {
+      return res.status(400).json({ message: 'Name, address, phone and email are required' });
+    }
+    
+    // Create new organization
+    const newOrg = new Organization({
+      name,
+      address,
+      phone,
+      email,
+      industry,
+      size: size || 'small'
+    });
+    
+    // Save organization
+    const organization = await newOrg.save();
+    
+    res.status(201).json(organization);
+  } catch (err) {
+    console.error('Error creating organization:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST api/organizations/:id/roles
+// @desc    Add a custom role to organization
+// @access  Private (Admin only)
+router.post('/:id/roles', isAdmin, async (req, res) => {
+  try {
+    const { name, permissions } = req.body;
+    
+    if (!name || !permissions || !Array.isArray(permissions)) {
+      return res.status(400).json({ message: 'Role name and permissions array are required' });
+    }
+    
+    const organization = await Organization.findById(req.params.id);
+    if (!organization) {
+      return res.status(404).json({ message: 'Organization not found' });
+    }
+    
+    // Check if role name already exists
+    if (organization.customRoles?.some(role => role.name === name)) {
+      return res.status(400).json({ message: 'Role name already exists' });
+    }
+    
+    // Add new custom role
+    organization.customRoles = [
+      ...(organization.customRoles || []),
+      { name, permissions }
+    ];
+    
+    await organization.save();
+    
+    res.json(organization);
+  } catch (err) {
+    console.error('Error adding custom role:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT api/organizations/:id/roles/:roleName
+// @desc    Update a custom role in organization
+// @access  Private (Admin only)
+router.put('/:id/roles/:roleName', isAdmin, async (req, res) => {
+  try {
+    const { permissions } = req.body;
+    const { id, roleName } = req.params;
+    
+    if (!permissions || !Array.isArray(permissions)) {
+      return res.status(400).json({ message: 'Permissions array is required' });
+    }
+    
+    const organization = await Organization.findById(id);
+    if (!organization) {
+      return res.status(404).json({ message: 'Organization not found' });
+    }
+    
+    // Find and update the role
+    const roleIndex = organization.customRoles?.findIndex(role => role.name === roleName);
+    if (roleIndex === -1) {
+      return res.status(404).json({ message: 'Role not found' });
+    }
+    
+    organization.customRoles[roleIndex].permissions = permissions;
+    await organization.save();
+    
+    res.json(organization);
+  } catch (err) {
+    console.error('Error updating custom role:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   DELETE api/organizations/:id/roles/:roleName
+// @desc    Delete a custom role from organization
+// @access  Private (Admin only)
+router.delete('/:id/roles/:roleName', isAdmin, async (req, res) => {
+  try {
+    const { id, roleName } = req.params;
+    
+    const organization = await Organization.findById(id);
+    if (!organization) {
+      return res.status(404).json({ message: 'Organization not found' });
+    }
+    
+    // Remove the role
+    organization.customRoles = organization.customRoles?.filter(role => role.name !== roleName) || [];
+    
+    // Update any users with this custom role to a default role
+    await User.updateMany(
+      { organizationId: id, customRole: roleName },
+      { $set: { role: 'inspector', customRole: null } }
+    );
+    
+    await organization.save();
+    
+    res.json({ message: 'Role deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting custom role:', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 });

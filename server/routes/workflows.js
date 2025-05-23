@@ -189,4 +189,17 @@ router.post('/duplicate/:id', isAdmin, async (req, res) => {
   }
 });
 
+// @route   GET api/workflows/categories
+// @desc    Get all unique workflow categories in the organization
+// @access  Private
+router.get('/categories', auth, async (req, res) => {
+  try {
+    const uniqueCategories = await Workflow.distinct('category', { organizationId: req.user.organizationId });
+    res.json(uniqueCategories);
+  } catch (err) {
+    console.error('Error fetching workflow categories:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 export default router;

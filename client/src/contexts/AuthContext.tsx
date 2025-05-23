@@ -6,7 +6,14 @@ import { AuthState, AuthResponse } from '../types';
 interface AuthContextProps {
   state: AuthState;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, organizationId: string, role: string) => Promise<void>;
+  register: (
+    name: string, 
+    email: string, 
+    password: string, 
+    organizationId: string, 
+    role: string,
+    customRole?: string
+  ) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
 }
@@ -201,9 +208,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
   };
-
   // Register new user
-  const register = async (name: string, email: string, password: string, organizationId: string, role: string) => {
+  const register = async (
+    name: string, 
+    email: string, 
+    password: string, 
+    organizationId: string, 
+    role: string,
+    customRole?: string
+  ) => {
     try {
       dispatch({ type: ActionType.AUTH_LOADING });
       
@@ -213,7 +226,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email, 
         password, 
         organizationId, 
-        role 
+        role,
+        customRole 
       });
       
       // Set token in axios headers

@@ -101,11 +101,11 @@ router.post('/register-admin', async (req, res) => {
 // @access  Public
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, organizationId, role } = req.body;
+    const { name, email, password, organizationId, role, customRole } = req.body;
     
     // Validate input
     if (!name || !email || !password || !organizationId || !role) {
-      return res.status(400).json({ message: 'All fields are required' });
+      return res.status(400).json({ message: 'All required fields must be provided' });
     }
     
     // Check if user already exists
@@ -114,13 +114,32 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'User already exists' });
     }
     
+    // Verify organization exists
+    const organization = await Organization.findById(organizationId);
+    if (!organization) {
+      return res.status(400).json({ message: 'Invalid organization' });
+    }
+    
+    // If it's a custom role, verify it exists in the organization
+    if (role === 'custom') {
+      if (!customRole) {
+        return res.status(400).json({ message: 'Custom role name must be provided' });
+      }
+      
+      const validRole = organization.customRoles?.find(r => r.name === customRole);
+      if (!validRole) {
+        return res.status(400).json({ message: 'Invalid custom role' });
+      }
+    }
+    
     // Create new user
     user = new User({
       name,
       email,
       password,
       organizationId,
-      role
+      role,
+      customRole: role === 'custom' ? customRole : undefined
     });
     
     // Hash password
@@ -135,6 +154,7 @@ router.post('/register', async (req, res) => {
       user: {
         id: user.id,
         role: user.role,
+        customRole: user.customRole,
         organizationId: user.organizationId
       }
     };
@@ -154,6 +174,7 @@ router.post('/register', async (req, res) => {
             name: user.name,
             email: user.email,
             role: user.role,
+            customRole: user.customRole,
             organizationId: user.organizationId,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt

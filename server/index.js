@@ -58,7 +58,7 @@ app.get('*', (req, res) => {
 
 // Connect to MongoDB
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/inspection-app', {
+mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://exim_test:5pzZt0QlPJoj4iA6@eximtest.xovvhdm.mongodb.net/exim', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
@@ -69,3 +69,4 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/inspectio
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+console.log(process.env.MONGODB_URI);

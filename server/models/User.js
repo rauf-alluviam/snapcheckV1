@@ -21,12 +21,19 @@ const UserSchema = new mongoose.Schema({
   address: {
     type: String,
     required: false // Assuming address is optional
-  },
-  role: {
+  },  role: {
     type: String,
-    enum: ['admin', 'inspector', 'approver'],
+    enum: ['admin', 'inspector', 'approver', 'custom'],
     default: 'inspector'
   },
+  customRole: {
+    type: String,
+    required: false
+  },
+  permissions: [{
+    type: String,
+    required: false
+  }],
   organizationId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Organization',

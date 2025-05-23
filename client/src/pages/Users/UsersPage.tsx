@@ -78,12 +78,12 @@ const mockUsers: UserData[] = [
 
 // Mock data for filters
 const roleOptions = ['All', 'Admin', 'Approver', 'Inspector'];
-const organizationOptions = [
-  { value: 'all', label: 'All Organizations' },
-  { value: '1', label: 'Acme Corp' },
-  { value: '2', label: 'Globex Industries' },
-  { value: '3', label: 'Initech' }
-];
+
+// Define organization interface
+interface Organization {
+  _id: string;
+  name: string;
+}
 
 interface NewUserFormData {
   name: string;
@@ -142,6 +142,33 @@ const UsersPage: React.FC = () => {
   
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [organizationOptions, setOrganizationOptions] = useState<Array<{value: string, label: string}>>([
+    { value: 'all', label: 'All Organizations' }
+  ]);
+  
+  // Fetch organizations
+  useEffect(() => {
+    const fetchOrganizations = async () => {
+      try {
+        const response = await api.get('/api/organizations');
+        const orgs = response.data;
+        setOrganizations(orgs);
+        setOrganizationOptions([
+          { value: 'all', label: 'All Organizations' },
+          ...orgs.map((org: Organization) => ({
+            value: org._id,
+            label: org.name
+          }))
+        ]);
+      } catch (error) {
+        console.error('Failed to fetch organizations:', error);
+      }
+    };
+
+    fetchOrganizations();
+  }, []);
   
   // Function to handle filter changes
   const handleFilterChange = (key: string, value: string) => {
@@ -213,52 +240,79 @@ const UsersPage: React.FC = () => {
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
-  
-  const handleNewUserSubmit = () => {
+    const handleNewUserSubmit = async () => {
     if (!validateForm(newUserFormData)) {
       return;
     }
     
     setIsSubmitting(true);
     
-    // In a real app, this would call the API to create a new user
-    console.log('Creating new user:', newUserFormData);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsNewUserModalOpen(false);
+    try {
+      const response = await api.post('/api/auth/register', {
+        name: newUserFormData.name,
+        email: newUserFormData.email,
+        password: newUserFormData.password,
+        role: newUserFormData.role,
+        organizationId: newUserFormData.organizationId
+      });
       
-      // Reset form data
+      // Add the new user to the list
+      const newUser = response.data.user;
+      const orgName = organizations.find(org => org._id === newUser.organizationId)?.name || '';
+      
+      setUsers(prev => [...prev, {
+        ...newUser,
+        organizationName: orgName
+      }]);
+      
+      setIsNewUserModalOpen(false);
       setNewUserFormData({
         name: '',
         email: '',
         password: '',
         role: 'inspector',
-        organizationId: '1'
+        organizationId: ''
       });
-      
-      alert('User created successfully! (This would be a real API call in a production app)');
-    }, 1500);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Failed to create user';
+      setFormErrors(prev => ({ ...prev, submit: errorMessage }));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-  
-  const handleEditUserSubmit = () => {
+    const handleEditUserSubmit = async () => {
     if (!validateForm(newUserFormData, true)) {
       return;
     }
     
     setIsSubmitting(true);
     
-    // In a real app, this would call the API to update the user
-    console.log('Updating user:', selectedUser?._id, newUserFormData);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsEditUserModalOpen(false);
+    try {
+      const response = await api.put(`/api/users/${selectedUser?._id}`, {
+        name: newUserFormData.name,
+        email: newUserFormData.email,
+        ...(newUserFormData.password ? { password: newUserFormData.password } : {}),
+        role: newUserFormData.role,
+        organizationId: newUserFormData.organizationId
+      });
       
-      alert('User updated successfully! (This would be a real API call in a production app)');
-    }, 1500);
+      // Update the user in the list
+      const updatedUser = response.data;
+      const orgName = organizations.find(org => org._id === updatedUser.organizationId)?.name || '';
+      
+      setUsers(prev => prev.map(user => 
+        user._id === updatedUser._id 
+          ? { ...updatedUser, organizationName: orgName }
+          : user
+      ));
+      
+      setIsEditUserModalOpen(false);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Failed to update user';
+      setFormErrors(prev => ({ ...prev, submit: errorMessage }));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   const handleEditUser = (user: UserData) => {
@@ -277,20 +331,23 @@ const UsersPage: React.FC = () => {
     setSelectedUser(user);
     setIsDeleteUserModalOpen(true);
   };
-  
-  const confirmDeleteUser = () => {
+    const confirmDeleteUser = async () => {
+    if (!selectedUser) return;
+    
     setIsSubmitting(true);
     
-    // In a real app, this would call the API to delete the user
-    console.log('Deleting user:', selectedUser?._id);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsDeleteUserModalOpen(false);
+    try {
+      await api.delete(`/api/users/${selectedUser._id}`);
       
-      alert('User deleted successfully! (This would be a real API call in a production app)');
-    }, 1500);
+      // Remove user from the list
+      setUsers(prev => prev.filter(user => user._id !== selectedUser._id));
+      setIsDeleteUserModalOpen(false);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Failed to delete user';
+      setFormErrors(prev => ({ ...prev, submit: errorMessage }));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   if (!isAdmin) {
@@ -567,11 +624,7 @@ const UsersPage: React.FC = () => {
             
             <Select
               label="Organization"
-              options={[
-                { value: '1', label: 'Acme Corp' },
-                { value: '2', label: 'Globex Industries' },
-                { value: '3', label: 'Initech' }
-              ]}
+              options={organizationOptions}
               value={newUserFormData.organizationId}
               onChange={(e) => setNewUserFormData({ ...newUserFormData, organizationId: e.target.value })}
               error={formErrors.organizationId}
@@ -648,11 +701,7 @@ const UsersPage: React.FC = () => {
             
             <Select
               label="Organization"
-              options={[
-                { value: '1', label: 'Acme Corp' },
-                { value: '2', label: 'Globex Industries' },
-                { value: '3', label: 'Initech' }
-              ]}
+              options={organizationOptions}
               value={newUserFormData.organizationId}
               onChange={(e) => setNewUserFormData({ ...newUserFormData, organizationId: e.target.value })}
               error={formErrors.organizationId}

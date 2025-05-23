@@ -195,7 +195,8 @@ const InspectionsPage: React.FC = () => {
     }
   }, [filteredInspections, user]);
 
-  if (userInspections.length === 0) {
+  // Check if user has permission to access this page
+  if (!user || (user.role !== 'admin' && user.role !== 'approver' && user.role !== 'inspector')) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <div className="text-center">
@@ -206,7 +207,7 @@ const InspectionsPage: React.FC = () => {
           </div>
           <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
           <p className="text-gray-600 max-w-md mb-6">
-            You don't have permission to access inspection management. This feature is available to administrators and inspectors.
+            You don't have permission to access inspection management. This feature is available to administrators, approvers, and inspectors.
           </p>
           <Link to="/dashboard">
             <Button variant="primary">
@@ -412,7 +413,7 @@ const InspectionsPage: React.FC = () => {
             ))}
           </div>
           
-          {filteredInspections.length === 0 && (
+          {userInspections.length === 0 && !loading && !error && (
             <div className="text-center py-12">
               <p className="text-gray-500">No inspections found matching your criteria.</p>
             </div>

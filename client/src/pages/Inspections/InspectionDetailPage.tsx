@@ -41,7 +41,7 @@ const InspectionDetailPage: React.FC = () => {
 
   const handleApprove = async () => {
     try {
-      await api.put(`/api/inspections/${id}/approve`, { remarks });
+      await api.put(`${process.env.VITE_APP_API_STRING}/inspections/${id}/approve`, { remarks });
       setInspection(prev => prev ? { ...prev, status: 'approved' } : null);
       setShowApproveModal(false);
       setRemarks('');

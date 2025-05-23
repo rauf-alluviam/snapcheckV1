@@ -3,6 +3,8 @@ import multer from 'multer';
 import multerS3 from 'multer-s3';
 import { S3Client } from '@aws-sdk/client-s3';
 import path from 'path';
+import dotenv from 'dotenv';
+
 import { fileURLToPath } from 'url';
 import { auth } from '../middleware/auth.js';
 
@@ -10,10 +12,8 @@ const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Log AWS environment variables
-console.log('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID);
-console.log('AWS_SECRET_ACCESS_KEY:', process.env.AWS_SECRET_ACCESS_KEY ? '***HIDDEN***' : undefined);
-console.log('AWS_REGION:', process.env.AWS_REGION);
+// Load environment variables
+dotenv.config();
 
 // Create S3 client with the new SDK
 const s3Client = new S3Client({
@@ -24,12 +24,12 @@ const s3Client = new S3Client({
   region: process.env.AWS_REGION
 });
 
-console.log('S3 Client:', s3Client);
+// console.log('S3 Client:', s3Client);
 
 // Configure S3 storage for all environments
 const storage = multerS3({
   s3: s3Client,
-  bucket: "snapcheckdata",
+  bucket: process.env.AWS_BUCKET_NAME,
   acl: 'public-read',
   metadata: function (req, file, cb) {
     cb(null, { fieldName: file.fieldname });
