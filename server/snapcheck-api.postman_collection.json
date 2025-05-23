@@ -1,0 +1,331 @@
+{
+  "info": {
+    "_postman_id": "12345678-abcd-1234-abcd-123456789012",
+    "name": "SnapCheck API",
+    "description": "API collection for SnapCheck application",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Admin User\",\n    \"email\": \"admin@example.com\",\n    \"password\": \"SecurePassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register-admin",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register-admin"]
+            },
+            "description": "Register initial admin user with default organization"
+          }
+        },
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Regular User\",\n    \"email\": \"user@example.com\",\n    \"password\": \"UserPassword123\",\n    \"organizationId\": \"{{organizationId}}\",\n    \"role\": \"inspector\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Register a new user"
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"SecurePassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login to get authentication token"
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth"]
+            },
+            "description": "Get authenticated user info"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Organizations",
+      "item": [
+        {
+          "name": "Create Organization",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"New Organization\",\n    \"address\": \"123 Main St, City, Country\",\n    \"phone\": \"123-456-7890\",\n    \"email\": \"contact@organization.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/organizations",
+              "host": ["{{base_url}}"],
+              "path": ["api", "organizations"]
+            },
+            "description": "Create a new organization (admin only)"
+          }
+        },
+        {
+          "name": "Get All Organizations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/organizations",
+              "host": ["{{base_url}}"],
+              "path": ["api", "organizations"]
+            },
+            "description": "Get all organizations (admin only)"
+          }
+        },
+        {
+          "name": "Get Current Organization",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/organizations/current",
+              "host": ["{{base_url}}"],
+              "path": ["api", "organizations", "current"]
+            },
+            "description": "Get current user's organization"
+          }
+        },
+        {
+          "name": "Update Current Organization",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Updated Organization Name\",\n    \"address\": \"456 New Address, City, Country\",\n    \"phone\": \"987-654-3210\",\n    \"email\": \"updated@organization.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/organizations/current",
+              "host": ["{{base_url}}"],
+              "path": ["api", "organizations", "current"]
+            },
+            "description": "Update current user's organization (admin only)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users"]
+            },
+            "description": "Get all users in the current organization"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Workflows",
+      "item": [
+        {
+          "name": "Create Workflow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Container Inspection\",\n  \"category\": \"Export\",\n  \"description\": \"Standard inspection workflow for export containers\",\n  \"steps\": [\n    {\n      \"title\": \"Container Exterior Inspection\",\n      \"instructions\": \"Check the exterior of the container for any damages, rust, or structural issues. Take photos of all four sides.\",\n      \"mediaRequired\": true\n    },\n    {\n      \"title\": \"Container Number Verification\",\n      \"instructions\": \"Verify the container number matches the shipping documents. Take a clear photo of the container number.\",\n      \"mediaRequired\": true\n    },\n    {\n      \"title\": \"Door Seal Check\",\n      \"instructions\": \"Check that the container seal is intact and matches the seal number on the documentation. Take a close-up photo of the seal.\",\n      \"mediaRequired\": true\n    },\n    {\n      \"title\": \"Interior Inspection\",\n      \"instructions\": \"Check the interior of the container for cleanliness, damages, and any potential issues that could affect cargo.\",\n      \"mediaRequired\": true\n    },\n    {\n      \"title\": \"Ventilation Check\",\n      \"instructions\": \"For ventilated containers, ensure all ventilation mechanisms are working properly.\",\n      \"mediaRequired\": false\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/workflows",
+              "host": ["{{base_url}}"],
+              "path": ["api", "workflows"]
+            },
+            "description": "Create a new workflow (admin only)"
+          }
+        },
+        {
+          "name": "Get All Workflows",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflows",
+              "host": ["{{base_url}}"],
+              "path": ["api", "workflows"]
+            },
+            "description": "Get all workflows for the user's organization"
+          }
+        },
+        {
+          "name": "Get Workflow by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflows/{{workflowId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "workflows", "{{workflowId}}"]
+            },
+            "description": "Get a specific workflow by ID"
+          }
+        },
+        {
+          "name": "Update Workflow",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Container Inspection\",\n  \"category\": \"Export\",\n  \"description\": \"Updated standard inspection workflow for export containers\",\n  \"steps\": [\n    {\n      \"title\": \"Container Exterior Inspection\",\n      \"instructions\": \"Check the exterior of the container for any damages, rust, or structural issues. Take photos of all four sides.\",\n      \"mediaRequired\": true\n    },\n    {\n      \"title\": \"Container Number Verification\",\n      \"instructions\": \"Verify the container number matches the shipping documents. Take a clear photo of the container number.\",\n      \"mediaRequired\": true\n    },\n    {\n      \"title\": \"Door Seal Check\",\n      \"instructions\": \"Check that the container seal is intact and matches the seal number on the documentation. Take a close-up photo of the seal.\",\n      \"mediaRequired\": true\n    },\n    {\n      \"title\": \"Interior Inspection\",\n      \"instructions\": \"Check the interior of the container for cleanliness, damages, and any potential issues that could affect cargo.\",\n      \"mediaRequired\": true\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/workflows/{{workflowId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "workflows", "{{workflowId}}"]
+            },
+            "description": "Update an existing workflow (admin only)"
+          }
+        }
+      ]
+    }
+  ],
+  "event": [],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "organizationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "workflowId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

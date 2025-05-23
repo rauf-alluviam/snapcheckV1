@@ -1,0 +1,32 @@
+{
+  "name": "Container Inspection",
+  "category": "Export",
+  "description": "Standard inspection workflow for export containers",
+  "steps": [
+    {
+      "title": "Container Exterior Inspection",
+      "instructions": "Check the exterior of the container for any damages, rust, or structural issues. Take photos of all four sides.",
+      "mediaRequired": true
+    },
+    {
+      "title": "Container Number Verification",
+      "instructions": "Verify the container number matches the shipping documents. Take a clear photo of the container number.",
+      "mediaRequired": true
+    },
+    {
+      "title": "Door Seal Check",
+      "instructions": "Check that the container seal is intact and matches the seal number on the documentation. Take a close-up photo of the seal.",
+      "mediaRequired": true
+    },
+    {
+      "title": "Interior Inspection",
+      "instructions": "Check the interior of the container for cleanliness, damages, and any potential issues that could affect cargo.",
+      "mediaRequired": true
+    },
+    {
+      "title": "Ventilation Check",
+      "instructions": "For ventilated containers, ensure all ventilation mechanisms are working properly.",
+      "mediaRequired": false
+    }
+  ]
+}
