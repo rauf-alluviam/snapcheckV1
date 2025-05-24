@@ -1,10 +1,13 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Inspection from '../models/Inspection.js';
 import Workflow from '../models/Workflow.js';
 import User from '../models/User.js';
 import { auth, isAdminOrApprover } from '../middleware/auth.js';
 import PDFDocument from 'pdfkit';
 import { Parser } from 'json2csv';
+import { processAutoApprovals, groupInspectionsForBulkApproval } from '../utils/autoApproval.js';
+import { sendNotification } from '../utils/notifications.js';
 
 const router = express.Router();
 
@@ -57,16 +60,15 @@ router.get('/', auth, async (req, res) => {
       .sort({ inspectionDate: -1 })
       .populate('assignedTo', 'name')
       .populate('approverId', 'name');
-    
-    // Transform inspections to include assignedToName and approverName
+      // Transform inspections to include assignedToName and approverName
     const transformedInspections = inspections.map(inspection => {
       const { assignedTo, approverId, ...rest } = inspection.toObject();
       return {
         ...rest,
-        assignedTo: assignedTo._id,
-        assignedToName: assignedTo.name,
-        approverId: approverId._id,
-        approverName: approverId.name
+        assignedTo: assignedTo?._id || null,
+        assignedToName: assignedTo?.name || 'Unknown User',
+        approverId: approverId?._id || null,
+        approverName: approverId?.name || 'Unknown User'
       };
     });
     
@@ -76,6 +78,259 @@ router.get('/', auth, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// =====================================
+// BATCH ROUTES - Must come before /:id route
+// =====================================
+
+// @route   GET api/inspections/batch
+// @desc    Get all inspection batches pending approval
+// @access  Private/Admin or Approver
+router.get('/batch', isAdminOrApprover, async (req, res) => {
+  try {
+    // Find all batches of inspections
+    const batches = await Inspection.aggregate([
+      { 
+        $match: { 
+          status: 'pending-bulk',
+          organizationId: new mongoose.Types.ObjectId(req.user.organizationId)
+        } 
+      },
+      {
+        $group: {
+          _id: '$batchId',
+          workflowId: { $first: '$workflowId' },
+          workflowName: { $first: '$workflowName' },
+          category: { $first: '$category' },
+          count: { $sum: 1 },
+          firstCreatedAt: { $min: '$createdAt' },
+          lastCreatedAt: { $max: '$createdAt' },
+          approverId: { $first: '$approverId' }
+        }
+      },
+      {
+        $sort: { firstCreatedAt: -1 }
+      }
+    ]);
+    
+    // Filter batches based on user role
+    let filteredBatches = batches;
+    if (req.user.role === 'approver') {
+      filteredBatches = batches.filter(batch => 
+        batch.approverId.toString() === req.user.id
+      );
+    }
+
+    res.json(filteredBatches);
+  } catch (err) {
+    console.error('Error fetching inspection batches:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET api/inspections/batch/:batchId
+// @desc    Get details of a specific batch
+// @access  Private/Admin or Approver
+router.get('/batch/:batchId', isAdminOrApprover, async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    
+    // Get all inspections in this batch
+    const inspections = await Inspection.find({ 
+      batchId,
+      organizationId: req.user.organizationId
+    })
+    .sort({ createdAt: 1 })
+    .populate('assignedTo', 'name')
+    .populate('approverId', 'name');
+    
+    if (inspections.length === 0) {
+      return res.status(404).json({ message: 'Batch not found' });
+    }
+      // If approver, check if they are assigned to these inspections
+    if (req.user.role === 'approver') {
+      const isApprover = inspections[0].approverId?._id?.toString() === req.user.id || 
+                         inspections[0].approvers?.some(a => a.userId.toString() === req.user.id);
+                         
+      if (!isApprover) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    }
+    
+    // Get workflow for more details
+    const workflow = await Workflow.findById(inspections[0].workflowId);
+    
+    res.json({
+      batchId,
+      workflow,      inspections: inspections.map(inspection => ({
+        _id: inspection._id,
+        status: inspection.status,
+        assignedTo: inspection.assignedTo,
+        assignedToName: inspection.assignedTo?.name || 'Unknown User',
+        inspectionDate: inspection.inspectionDate,
+        meterReading: inspection.meterReading,
+        readingDate: inspection.readingDate,
+        createdAt: inspection.createdAt
+      })),
+      count: inspections.length,
+      firstCreatedAt: inspections[0].createdAt,
+      lastCreatedAt: inspections[inspections.length - 1].createdAt
+    });
+  } catch (err) {
+    console.error('Error fetching batch details:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT api/inspections/batch/:batchId/approve
+// @desc    Approve all inspections in a batch
+// @access  Private/Admin or Approver
+router.put('/batch/:batchId/approve', isAdminOrApprover, async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    const { remarks } = req.body;
+    
+    // Get all inspections in this batch
+    const inspections = await Inspection.find({ 
+      batchId,
+      organizationId: req.user.organizationId,
+      status: 'pending-bulk'
+    });
+    
+    if (inspections.length === 0) {
+      return res.status(404).json({ message: 'Batch not found or already processed' });    }
+    
+    // If approver, check if they are assigned to these inspections
+    if (req.user.role === 'approver') {
+      const isApprover = inspections[0].approverId?.toString() === req.user.id || 
+                         inspections[0].approvers?.some(a => a.userId.toString() === req.user.id);
+                         
+      if (!isApprover) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    }
+
+    // Approve all inspections in the batch
+    const now = new Date();
+    const updateResult = await Inspection.updateMany(
+      { batchId, status: 'pending-bulk' },
+      { 
+        $set: { 
+          status: 'approved',
+          remarks: remarks || 'Bulk approved',
+          approvedAt: now,
+          approvedBy: req.user.id,
+          'approvers.$[elem].status': 'approved',
+          'approvers.$[elem].remarks': remarks || 'Bulk approved',
+          'approvers.$[elem].actionDate': now
+        } 
+      },
+      {
+        arrayFilters: [{ 'elem.userId': req.user.id }]
+      }
+    );
+    
+    res.json({
+      message: `Successfully approved ${updateResult.modifiedCount} inspections`,
+      batchId,
+      modifiedCount: updateResult.modifiedCount
+    });
+  } catch (err) {
+    console.error('Error approving batch:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT api/inspections/batch/:batchId/reject
+// @desc    Reject all inspections in a batch
+// @access  Private/Admin or Approver
+router.put('/batch/:batchId/reject', isAdminOrApprover, async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    const { remarks } = req.body;
+    
+    if (!remarks) {
+      return res.status(400).json({ message: 'Rejection remarks are required' });
+    }
+    
+    // Get all inspections in this batch
+    const inspections = await Inspection.find({ 
+      batchId,
+      organizationId: req.user.organizationId,
+      status: 'pending-bulk'
+    });
+    
+    if (inspections.length === 0) {
+      return res.status(404).json({ message: 'Batch not found or already processed' });    }
+    
+    // If approver, check if they are assigned to these inspections
+    if (req.user.role === 'approver') {
+      const isApprover = inspections[0].approverId?.toString() === req.user.id || 
+                         inspections[0].approvers?.some(a => a.userId.toString() === req.user.id);
+                         
+      if (!isApprover) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    }
+
+    // Reject all inspections in the batch
+    const now = new Date();
+    const updateResult = await Inspection.updateMany(
+      { batchId, status: 'pending-bulk' },
+      { 
+        $set: { 
+          status: 'rejected',
+          rejectionReason: remarks,
+          remarks: remarks,
+          rejectedAt: now,
+          rejectedBy: req.user.id,
+          'approvers.$[elem].status': 'rejected',
+          'approvers.$[elem].remarks': remarks,
+          'approvers.$[elem].actionDate': now
+        } 
+      },
+      {
+        arrayFilters: [{ 'elem.userId': req.user.id }]
+      }
+    );
+    
+    res.json({
+      message: `Successfully rejected ${updateResult.modifiedCount} inspections`,
+      batchId,
+      modifiedCount: updateResult.modifiedCount
+    });
+  } catch (err) {
+    console.error('Error rejecting batch:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST api/inspections/process-batches
+// @desc    Process pending inspections and group them into batches
+// @access  Private/Admin
+router.post('/process-batches', auth, async (req, res) => {
+  try {
+    // Only admins can manually trigger batch processing
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    const result = await groupInspectionsForBulkApproval(req.user.organizationId);
+    
+    res.json({
+      message: 'Successfully processed inspections for bulk approval',
+      batches: result.length,
+      totalInspections: result.reduce((sum, group) => sum + group.count, 0)
+    });
+  } catch (err) {
+    console.error('Error processing batches:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// =====================================
+// END BATCH ROUTES
+// =====================================
 
 // @route   GET api/inspections/:id
 // @desc    Get inspection by ID
@@ -95,32 +350,30 @@ router.get('/:id', auth, async (req, res) => {
     if (inspection.organizationId.toString() !== req.user.organizationId) {
       return res.status(403).json({ message: 'Access denied' });
     }
-    
-    // Check role-based access
-    if (req.user.role === 'inspector' && inspection.assignedTo._id.toString() !== req.user.id) {
+      // Check role-based access
+    if (req.user.role === 'inspector' && inspection.assignedTo?._id?.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Access denied. You can only view inspections assigned to you.' });
-    } else if (req.user.role === 'approver' && inspection.approverId._id.toString() !== req.user.id) {
+    } else if (req.user.role === 'approver' && inspection.approverId?._id?.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Access denied. You can only view inspections you are assigned to approve.' });
     }
       // Transform inspection to include assignedToName and approverName
     const { assignedTo, approverId, approvers = [], ...rest } = inspection.toObject();
-    
-    // Transform approvers to include userName
+      // Transform approvers to include userName
     const transformedApprovers = approvers.map(approver => {
       const { userId, ...approverRest } = approver;
       return {
         ...approverRest,
-        userId: userId._id || userId, // Handle both populated and unpopulated
-        userName: userId.name || 'Unknown User'
+        userId: userId?._id || userId, // Handle both populated and unpopulated
+        userName: userId?.name || 'Unknown User'
       };
     });
     
     const transformedInspection = {
       ...rest,
-      assignedTo: assignedTo._id,
-      assignedToName: assignedTo.name,
-      approverId: approverId._id,
-      approverName: approverId.name,
+      assignedTo: assignedTo?._id || null,
+      assignedToName: assignedTo?.name || 'Unknown User',
+      approverId: approverId?._id || null,
+      approverName: approverId?.name || 'Unknown User',
       approvers: transformedApprovers
     };
     
@@ -212,7 +465,25 @@ router.post('/', auth, async (req, res) => {
         }
       }
     }
-    
+      // Extract meter reading if available (for bike speedometer, machine readings, etc.)
+    let meterReading = null;
+    if (req.body.meterReading !== undefined) {
+      meterReading = parseFloat(req.body.meterReading);
+    } else {
+      // Try to extract from first filled step if it's numeric
+      try {
+        const firstStepResponse = filledSteps[0]?.responseText;
+        if (firstStepResponse) {
+          const parsed = parseFloat(firstStepResponse);
+          if (!isNaN(parsed)) {
+            meterReading = parsed;
+          }
+        }
+      } catch (e) {
+        // Not a valid number, that's okay
+      }
+    }
+
     // Create new inspection
     const inspection = new Inspection({
       workflowId,
@@ -225,11 +496,33 @@ router.post('/', auth, async (req, res) => {
       approvers: approversData, // Add the array of approvers (now possibly including admin)
       status: 'pending',
       organizationId: req.user.organizationId,
-      inspectionDate: new Date(inspectionDate)
+      inspectionDate: new Date(inspectionDate),
+      meterReading: meterReading,
+      readingDate: new Date()
     });
     
     // Save inspection
     await inspection.save();
+      // Check for auto-approval if this is a routine inspection
+    // Auto-approve if workflow settings allow it AND either the autoApprove flag is set or the workflow has autoApprovalEnabled
+    if (workflow.isRoutineInspection && (req.body.autoApprove === true || workflow.autoApprovalEnabled)) {
+      const wasAutoApproved = await processAutoApprovals(inspection, workflow);
+      
+      if (wasAutoApproved) {
+        return res.json({ 
+          ...inspection.toObject(), 
+          autoApproved: true,
+          message: 'Inspection was automatically approved based on predefined rules'
+        });
+      }
+      
+      // For routine inspections that aren't auto-approved, check if they should be grouped
+      if (workflow.bulkApprovalEnabled) {
+        // Mark for bulk approval instead of immediate notification
+        inspection.status = 'pending-bulk';
+        await inspection.save();
+      }
+    }
     
     res.json(inspection);
   } catch (err) {
@@ -440,19 +733,18 @@ router.get('/:id/report', auth, async (req, res) => {
     doc.fontSize(12).text(`Category: ${inspection.category}`);
     doc.fontSize(12).text(`Status: ${inspection.status.toUpperCase()}`);
     doc.fontSize(12).text(`Date: ${new Date(inspection.inspectionDate).toLocaleDateString()}`);
-    doc.moveDown();
-      // Participants
+    doc.moveDown();      // Participants
     doc.fontSize(14).text('Participants', { underline: true });
     doc.moveDown(0.5);
-    doc.fontSize(12).text(`Inspector: ${inspection.assignedTo.name}`);
-    doc.fontSize(12).text(`Primary Approver: ${inspection.approverId.name}`);
+    doc.fontSize(12).text(`Inspector: ${inspection.assignedTo?.name || 'Unknown User'}`);
+    doc.fontSize(12).text(`Primary Approver: ${inspection.approverId?.name || 'Unknown User'}`);
     
     // List all approvers with their status
     if (inspection.approvers && inspection.approvers.length > 0) {
       doc.moveDown(0.5);
       doc.fontSize(12).text('All Approvers:');
       inspection.approvers.forEach(approver => {
-        const userName = approver.userId.name || 'Unknown User';
+        const userName = approver.userId?.name || 'Unknown User';
         const status = approver.status.toUpperCase();
         doc.fontSize(10).text(`- ${userName}: ${status}`);
         if (approver.remarks) {
@@ -555,8 +847,7 @@ router.get('/export/csv', auth, async (req, res) => {
       .sort({ inspectionDate: -1 })
       .populate('assignedTo', 'name')
       .populate('approverId', 'name');
-    
-    // Transform inspections for CSV export
+      // Transform inspections for CSV export
     const transformedInspections = inspections.map(inspection => {
       return {
         ID: inspection._id,
@@ -564,8 +855,8 @@ router.get('/export/csv', auth, async (req, res) => {
         Category: inspection.category,
         InspectionType: inspection.inspectionType,
         Status: inspection.status,
-        Inspector: inspection.assignedTo.name,
-        Approver: inspection.approverId.name,
+        Inspector: inspection.assignedTo?.name || 'Unknown User',
+        Approver: inspection.approverId?.name || 'Unknown User',
         InspectionDate: new Date(inspection.inspectionDate).toLocaleDateString(),
         CreatedAt: new Date(inspection.createdAt).toLocaleString()
       };
@@ -581,8 +872,7 @@ router.get('/export/csv', auth, async (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename=inspections.csv');
     
     // Send CSV response
-    res.send(csv);
-  } catch (err) {
+    res.send(csv);  } catch (err) {
     console.error('Error exporting inspections as CSV:', err.message);
     res.status(500).json({ message: 'Server error' });
   }

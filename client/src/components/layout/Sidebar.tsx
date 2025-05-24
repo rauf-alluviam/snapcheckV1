@@ -57,9 +57,8 @@ const Sidebar: React.FC = () => {
     logout();
     navigate('/login');
   };
-
   return (
-    <div className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 border-r border-gray-200 bg-white">
+    <div className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 border-r border-gray-200 bg-white">
       <div className="flex flex-col flex-grow pt-5 overflow-y-auto">
         <div className="flex items-center flex-shrink-0 px-4 mb-5">
           <span className="text-xl font-bold text-blue-600">Inspect Pro</span>
@@ -68,22 +67,22 @@ const Sidebar: React.FC = () => {
           {/* Common navigation items for all authenticated users */}
           <NavItem to="/dashboard" icon={<LayoutDashboard size={20} />} label="Dashboard" />
           <NavItem to="/inspections" icon={<ClipboardList size={20} />} label="Inspections" />
-          
-          {/* Admin-only navigation items */}
+            {/* Admin-only navigation items */}
           {isAdmin && (
             <>
               <NavItem to="/workflows" icon={<Workflow size={20} />} label="Workflows" />
               <NavItem to="/reports" icon={<FileText size={20} />} label="Reports" />
               <NavItem to="/analytics" icon={<BarChart4 size={20} />} label="Analytics" />
+              <NavItem to="/batch-approvals" icon={<ShieldCheck size={20} />} label="Batch Approvals" />
               <NavItem to="/users" icon={<Users size={20} />} label="Users Management" />
               <NavItem to="/settings" icon={<Settings size={20} />} label="System Settings" />
             </>
           )}
-          
-          {/* Approver-specific navigation items */}
+            {/* Approver-specific navigation items */}
           {isApprover && (
             <>
               <NavItem to="/approvals" icon={<UserCheck size={20} />} label="Approvals" />
+              <NavItem to="/batch-approvals" icon={<ShieldCheck size={20} />} label="Batch Approvals" />
               <NavItem to="/reports" icon={<FileText size={20} />} label="Reports" />
             </>
           )}

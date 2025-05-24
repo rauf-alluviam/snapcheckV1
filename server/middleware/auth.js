@@ -10,12 +10,10 @@ export const auth = async (req, res, next) => {
   if (!token) {
     return res.status(401).json({ message: 'No token, authorization denied' });
   }
-  
   try {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'jwtSecret');
-    
-    // Add user from payload to request
+      // Add user from payload to request
     req.user = decoded.user;
     
     // Optional: Verify user still exists in database

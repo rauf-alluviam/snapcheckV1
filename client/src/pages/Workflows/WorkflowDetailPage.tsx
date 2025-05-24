@@ -8,6 +8,7 @@ import { FileText, Trash2, Edit, Copy, AlertCircle } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import api from '../../utils/api';
 import { Workflow } from '../../types';
+import AutoApprovalSettings from '../../components/workflows/AutoApprovalSettings';
 
 // Mock data for workflow
 const mockWorkflows = [
@@ -194,6 +195,35 @@ const WorkflowDetailPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+        {/* Auto-Approval Settings */}
+      <AutoApprovalSettings
+        workflowId={workflow._id}
+        initialSettings={{
+          isRoutineInspection: workflow.isRoutineInspection || false,
+          autoApprovalEnabled: workflow.autoApprovalEnabled || false,
+          bulkApprovalEnabled: workflow.bulkApprovalEnabled || false,
+          autoApprovalRules: workflow.autoApprovalRules || {
+            timeRangeStart: '00:00',
+            timeRangeEnd: '23:59',
+            valueField: 'responseText',
+            requirePhoto: true,
+            frequencyPeriod: 'day'
+          },
+          notificationFrequency: workflow.notificationFrequency || 'daily'
+        }}
+        onSettingsUpdate={() => {
+          // Refresh workflow data when settings are updated
+          const fetchWorkflow = async () => {
+            try {
+              const res = await api.get(`/api/workflows/${id}`);
+              setWorkflow(res.data);
+            } catch (err) {
+              console.error('Error refreshing workflow data:', err);
+            }
+          };
+          fetchWorkflow();
+        }}
+      />
       
       <Card>
         <CardHeader>

@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { errorHandler } from './middleware/errorHandler.js';
+import { initScheduledJobs } from './scheduledJobs.js';
 
 // Routes
 import authRoutes from './routes/auth.js';
@@ -65,18 +66,23 @@ app.use(errorHandler);
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/dist')));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
-});
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  });
 }
 
-// Connect to MongoDB
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://exim_test:5pzZt0QlPJoj4iA6@eximtest.xovvhdm.mongodb.net/exim', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
-  .then(() => console.log('MongoDB connected'))
+  .then(() => {
+    console.log('MongoDB connected');
+    
+    // Initialize scheduled jobs after DB connection
+    initScheduledJobs();
+    console.log('Scheduled jobs initialized');
+  })
   .catch(err => console.error('MongoDB connection error:', err));
 
 // Start server

@@ -49,9 +49,8 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
     <header className="bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
-          <div className="flex">
-            {isAuthenticated && (
-              <div className="flex-shrink-0 flex items-center lg:hidden">
+          <div className="flex">            {isAuthenticated && (
+              <div className="flex-shrink-0 flex items-center md:hidden">
                 <button
                   onClick={toggleSidebar}
                   className="p-2 rounded-md text-white/80 hover:text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white/20"
@@ -61,7 +60,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
                 </button>
               </div>
             )}
-            <div className="hidden lg:ml-6 lg:flex lg:items-center lg:space-x-4">
+            <div className="hidden md:ml-6 md:flex md:items-center md:space-x-4">
               <h1 className="text-xl font-semibold text-white">{getPageTitle()}</h1>
             </div>
           </div>

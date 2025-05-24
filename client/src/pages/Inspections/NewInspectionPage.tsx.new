@@ -1,3 +1,4 @@
+// filepath: d:\snapcheckV1\client\src\pages\Inspections\NewInspectionPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
@@ -46,8 +47,9 @@ interface FormValues {
   }[];
 }
 
-const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
-  useAuth(); // Keep the auth context connection even if we don't use the state directly
+const NewInspectionPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { state } = useAuth();
   
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);

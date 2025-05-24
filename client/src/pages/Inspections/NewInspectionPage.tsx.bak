@@ -38,7 +38,7 @@ interface FormValues {
   approverId: string; // Main approver (for backward compatibility)
   approverIds: string[]; // Multiple approvers
   inspectionDate: string;
-  autoApprove: boolean; // For daily inspections that can be auto-approved
+  autoApprove: boolean; // New field for auto-approval
   steps: {
     stepId: string;
     responseText: string;
@@ -46,8 +46,9 @@ interface FormValues {
   }[];
 }
 
-const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
-  useAuth(); // Keep the auth context connection even if we don't use the state directly
+const NewInspectionPage: React.FC = () => {
+  const navigate = useNavigate();  const { state } = useAuth();
+  const { user } = state; // Used for authentication context
   
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,7 +88,7 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
         }
       } catch (err) {
         console.error('Error fetching data:', err);
-        setErrorMessage('Failed to load required data');
+        setError('Failed to load required data');
       } finally {
         setLoading(false);
       }
@@ -95,8 +96,7 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
 
     fetchData();
   }, []);
-  
-  const { 
+    const { 
     register, 
     handleSubmit, 
     control,
@@ -135,14 +135,12 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
         replace(stepsFields);
       }
     }
-  }, [watchedWorkflowId, replace, workflows]);
-  
-  const [submissionSuccess, setSubmissionSuccess] = useState<string | null>(null);
+  }, [watchedWorkflowId, replace, workflows]);  const [submissionSuccess, setSubmissionSuccess] = useState<string | null>(null);
   
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
     setSubmissionSuccess(null);
-    setErrorMessage(null);
+    setError(null);
     
     try {
       console.log('Submitting inspection with data:', data);
@@ -176,8 +174,7 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
       // Get auth token
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Authentication token not found');
-      
-      // Prepare the inspection data with stepTitle included
+        // Prepare the inspection data with stepTitle included
       const inspectionData = {
         workflowId: data.workflowId,
         approverId: data.approverId, // Primary approver (for backward compatibility)
@@ -194,12 +191,11 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
             timestamp: new Date().toISOString() // Add timestamp
           };
         }),
-        autoApprove: data.autoApprove // Include autoApprove field for daily inspections
+        autoApprove: data.autoApprove // Include autoApprove field
       };
       
       console.log('Sending inspection data:', JSON.stringify(inspectionData));
-      
-      // Submit using centralized API configuration for better URL handling
+        // Submit using centralized API configuration for better URL handling
       const { buildApiUrl } = await import('../../utils/apiConfig');
       const response = await fetch(buildApiUrl('/inspections'), {
         method: 'POST',
@@ -227,8 +223,7 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
       
       const responseData = await response.json();
       console.log('Inspection submitted successfully:', responseData);
-      
-      // Check if the inspection was auto-approved
+        // Check if the inspection was auto-approved
       if (responseData.autoApproved) {
         setSubmissionSuccess('Inspection was submitted and automatically approved!');
       } else if (responseData.status === 'pending-bulk') {
@@ -244,12 +239,11 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
       
     } catch (error) {
       console.error('Error submitting inspection:', error);
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to submit inspection');
+      setError(error instanceof Error ? error.message : 'Failed to submit inspection');
       setIsSubmitting(false);
     }
-  };
-  
-  return (
+};
+    return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
         <h1 className="text-2xl font-semibold text-gray-900">New Inspection</h1>
@@ -265,16 +259,6 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
               <p className="text-sm font-medium text-green-800">
                 {submissionSuccess}
               </p>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {errorMessage && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
-          <div className="flex">
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{errorMessage}</p>
             </div>
           </div>
         </div>
@@ -300,15 +284,13 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
                       {...register('workflowId', { required: 'Workflow is required' })}
                       error={errors.workflowId?.message}
                     />
-                    
-                    <Select
+                      <Select
                       label="Primary Approver"
                       options={approvers}
                       {...register('approverId', { required: 'Primary approver is required' })}
                       error={errors.approverId?.message}
                     />
-                    
-                    <div>
+                      <div>
                       <MultiSelect
                         label="Additional Approvers (Optional)"
                         helperText="Hold Ctrl/Cmd key to select multiple approvers. Both AppRiver admin and selected approvers can approve the inspection."
@@ -316,8 +298,7 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
                         {...register('approverIds')}
                       />
                     </div>
-                    
-                    <Input
+                      <Input
                       label="Inspection Date"
                       type="date"
                       {...register('inspectionDate', { required: 'Date is required' })}
@@ -399,7 +380,7 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
                                     }}
                                     onError={(error) => {
                                       console.error(`Upload error for step ${index}:`, error);
-                                      setErrorMessage('Failed to upload files. Please try again.');
+                                      setError('Failed to upload files. Please try again.');
                                     }}
                                     maxFiles={5}
                                     acceptedFileTypes={['image/*', 'video/*']}
@@ -429,8 +410,7 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
                                       if (files && files.length > 0) {
                                         const formData = new FormData();
                                         formData.append('media', files[0]);
-                                        
-                                        try {
+                                          try {
                                           // Use the centralized upload function for consistency
                                           const { uploadFiles } = await import('../../utils/apiConfig');
                                           const urls = await uploadFiles([files[0]]);
@@ -439,7 +419,7 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
                                           setValue(`steps.${index}.mediaUrls`, urls);
                                         } catch (error) {
                                           console.error('Camera upload failed:', error);
-                                          setErrorMessage('Failed to upload camera image');
+                                          setError('Failed to upload camera image');
                                         }
                                       }
                                     };

@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import Modal from '../../components/ui/Modal';
 import { FilterParams, Workflow } from '../../types';
-import { Filter, Plus, Search, FileText, CheckCircle } from 'lucide-react';
+import { Filter, Plus, Search, FileText, CheckCircle, Trash2, Edit, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
 
@@ -97,7 +98,9 @@ const WorkflowsPage: React.FC = () => {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [workflowToDelete, setWorkflowToDelete] = useState<Workflow | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   // Function to fetch workflows
   const fetchWorkflows = async () => {
     try {
@@ -113,6 +116,32 @@ const WorkflowsPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  // Function to delete a workflow
+  const deleteWorkflow = async () => {
+    if (!workflowToDelete) return;
+    
+    try {
+      setIsDeleting(true);
+      await api.delete(`/api/workflows/${workflowToDelete._id}`);
+      setWorkflows(prev => prev.filter(w => w._id !== workflowToDelete._id));
+      setDeleteModalOpen(false);
+      setWorkflowToDelete(null);
+    } catch (err) {
+      console.error('Error deleting workflow:', err);
+      setErrorMessage('Failed to delete workflow. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  
+  // Function to open delete confirmation modal
+  const handleDeleteClick = (e: React.MouseEvent, workflow: Workflow) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setWorkflowToDelete(workflow);
+    setDeleteModalOpen(true);
   };
 
   // Fetch workflows from API on component mount
@@ -245,52 +274,68 @@ const WorkflowsPage: React.FC = () => {
             </div>
           )}
         </CardContent>
-      </Card>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      </Card>      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredWorkflows.map((workflow) => (
-          <Link 
-            key={workflow._id} 
-            to={`/workflows/${workflow._id}`}
-            className="group block"
-          >
-            <Card className="h-full transition-shadow hover:shadow-lg">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div>
+          <Card key={workflow._id} className="h-full transition-shadow hover:shadow-lg">
+            <CardContent className="p-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <Link 
+                    to={`/workflows/${workflow._id}`}
+                    className="group block"
+                  >
                     <h3 className="text-lg font-medium text-gray-900 group-hover:text-blue-600">
                       {workflow.name}
                     </h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {workflow.description}
-                    </p>
+                  </Link>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {workflow.description}
+                  </p>
+                </div>
+                <Badge 
+                  variant="primary"
+                  size="sm"
+                >
+                  {workflow.category}
+                </Badge>
+              </div>
+              
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center">
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-1" />
+                    <span className="text-gray-600">{workflow.steps.length} Steps</span>
                   </div>
-                  <Badge 
-                    variant="primary"
-                    size="sm"
-                  >
-                    {workflow.category}
-                  </Badge>
+                  <span className="text-gray-500">
+                    Created {new Date(workflow.createdAt).toLocaleDateString()}
+                  </span>
                 </div>
                 
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-1" />
-                      <span className="text-gray-600">{workflow.steps.length} Steps</span>
-                    </div>
-                    <span className="text-gray-500">
-                      Created {new Date(workflow.createdAt).toLocaleDateString()}
-                    </span>
+                {isAdmin && (
+                  <div className="mt-3 flex justify-end space-x-2">
+                    <Link to={`/workflows/edit/${workflow._id}`}>
+                      <button
+                        className="p-1.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        title="Edit workflow"
+                      >
+                        <Edit size={16} />
+                      </button>
+                    </Link>
+                    <button
+                      className="p-1.5 rounded-full bg-gray-100 text-red-600 hover:bg-gray-200"
+                      onClick={(e) => handleDeleteClick(e, workflow)}
+                      title="Delete workflow"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
-      
-      {isLoading ? (
+        {isLoading ? (
         <div className="text-center py-12">
           <p className="text-gray-500">Loading workflows...</p>
         </div>
@@ -310,6 +355,52 @@ const WorkflowsPage: React.FC = () => {
           <p className="text-gray-500">No workflows found matching your criteria.</p>
         </div>
       )}
+      
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setWorkflowToDelete(null);
+        }}
+        title="Delete Workflow"
+      >
+        <div className="p-6">
+          <div className="flex items-center mb-4">
+            <div className="mr-4 flex-shrink-0 bg-red-100 rounded-full p-2">
+              <AlertCircle className="h-6 w-6 text-red-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">
+                Confirm Deletion
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Are you sure you want to delete "{workflowToDelete?.name}"? This action cannot be undone.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end space-x-3 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteModalOpen(false);
+                setWorkflowToDelete(null);
+              }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={deleteWorkflow}
+              disabled={isDeleting}
+              loading={isDeleting}
+            >
+              Delete Workflow
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

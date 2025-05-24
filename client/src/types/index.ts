@@ -27,6 +27,17 @@ export interface WorkflowStep {
   mediaRequired: boolean;
 }
 
+export interface AutoApprovalRule {
+  timeRangeStart: string;
+  timeRangeEnd: string;
+  minValue?: number;
+  maxValue?: number;
+  valueField: string;
+  requirePhoto: boolean;
+  frequencyLimit?: number;
+  frequencyPeriod: 'hour' | 'day' | 'week';
+}
+
 export interface Workflow {
   _id: string;
   name: string;
@@ -36,6 +47,11 @@ export interface Workflow {
   organizationId: string;
   createdAt: string;
   updatedAt: string;
+  isRoutineInspection?: boolean;
+  autoApprovalEnabled?: boolean;
+  bulkApprovalEnabled?: boolean;
+  autoApprovalRules?: AutoApprovalRule;
+  notificationFrequency?: 'immediate' | 'hourly' | 'daily' | 'weekly';
 }
 
 export interface FilledStep {
@@ -68,11 +84,15 @@ export interface Inspection {
   approverId: string;
   approverName?: string;
   approvers?: InspectionApprover[]; // Added for multiple approvers
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'auto-approved' | 'pending-bulk';
   organizationId: string;
   inspectionDate: string;
   createdAt: string;
   updatedAt: string;
+  autoApproved?: boolean;
+  batchId?: string;
+  meterReading?: number;
+  readingDate?: string;
 }
 
 export interface AuthState {

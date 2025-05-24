@@ -208,13 +208,12 @@ router.delete('/:id', isAdmin, async (req, res) => {
         organizationId: req.user.organizationId,
         role: 'admin'
       });
-      
-      if (adminCount <= 1) {
+        if (adminCount <= 1) {
         return res.status(400).json({ message: 'Cannot delete the only admin user' });
       }
     }
     
-    await user.remove();
+    await user.deleteOne();
     
     res.json({ message: 'User removed' });
   } catch (err) {
