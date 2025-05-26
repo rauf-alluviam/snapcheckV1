@@ -36,7 +36,8 @@ const mockInspections: Inspection[] = [
         status: 'pending'
       }
     ]
-  },  {
+  },
+  {
     _id: '2',
     workflowId: '2',
     workflowName: 'Facility Inspection',
@@ -60,7 +61,8 @@ const mockInspections: Inspection[] = [
         status: 'approved'
       }
     ]
-  },  {
+  },
+  {
     _id: '3',
     workflowId: '3',
     workflowName: 'Vehicle Inspection',
@@ -84,7 +86,8 @@ const mockInspections: Inspection[] = [
         status: 'rejected'
       }
     ]
-  },  {
+  },
+  {
     _id: '4',
     workflowId: '4',
     workflowName: 'Chair Setup',
@@ -108,7 +111,8 @@ const mockInspections: Inspection[] = [
         status: 'pending'
       }
     ]
-  },  {
+  },
+  {
     _id: '5',
     workflowId: '1',
     workflowName: 'Cargo Inspection',
@@ -163,6 +167,11 @@ const InspectionsPage: React.FC = () => {
   const [groupByWorkflow, setGroupByWorkflow] = useState(true);
   const [expandedWorkflows, setExpandedWorkflows] = useState<Record<string, boolean>>({});
 
+  const handleGroupByWorkflowChange = (newValue: boolean) => {
+    console.log('Group by workflow changed from:', groupByWorkflow, 'to:', newValue);
+    setGroupByWorkflow(newValue);
+  };
+
   // Fetch inspections and pending batch count from API
   useEffect(() => {
     const fetchData = async () => {
@@ -213,7 +222,8 @@ const InspectionsPage: React.FC = () => {
     setFilters({organizationId: '', role: ''});
     setSearchQuery('');
   };
-    // Function to delete an inspection
+
+  // Function to delete an inspection
   const deleteInspection = async () => {
     if (!inspectionToDelete) return;
     
@@ -332,18 +342,30 @@ const InspectionsPage: React.FC = () => {
     }, {});
   }, [userInspections, groupByWorkflow]);
 
-  // Initialize expanded state when workflows change
+  // Initialize expanded state when workflows change - FIXED
   useEffect(() => {
     if (groupByWorkflow) {
       const workflowNames = Object.keys(groupedInspections);
-      const initialExpanded = workflowNames.reduce((acc: Record<string, boolean>, name) => {
-        // Initially expand all workflows
-        acc[name] = true;
-        return acc;
-      }, {});
-      setExpandedWorkflows(initialExpanded);
+      if (workflowNames.length > 0) {
+        setExpandedWorkflows(prev => {
+          const hasWorkflows = Object.keys(prev).length > 0;
+          const workflowsChanged = !workflowNames.every(name => name in prev);
+          
+          if (!hasWorkflows || workflowsChanged) {
+            const initialExpanded: Record<string, boolean> = {};
+            workflowNames.forEach(name => {
+              initialExpanded[name] = prev[name] !== undefined ? prev[name] : true;
+            });
+            return initialExpanded;
+          }
+          return prev;
+        });
+      }
+    } else {
+      // Clear expanded state when not grouping
+      setExpandedWorkflows({});
     }
-  }, [groupByWorkflow, groupedInspections]);
+  }, [groupByWorkflow]); // Only depend on groupByWorkflow
 
   // Toggle expansion of a workflow group
   const toggleWorkflowExpansion = (workflowName: string) => {
@@ -426,31 +448,16 @@ const InspectionsPage: React.FC = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-            <div className="flex flex-wrap items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between mb-4">
             <div className="flex items-center mb-2 sm:mb-0">
               <label className="inline-flex items-center mr-4 text-sm font-medium text-gray-700">
                 Group by workflow
               </label>
               <Switch 
                 checked={groupByWorkflow} 
-                onChange={setGroupByWorkflow}
+                onChange={handleGroupByWorkflowChange}
                 className="ml-2"
               />
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <button
-                className={`px-3 py-1 rounded-l-md ${viewMode === 'card' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
-                onClick={() => setViewMode('card')}
-              >
-                Card View
-              </button>
-              <button
-                className={`px-3 py-1 rounded-r-md ${viewMode === 'table' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
-                onClick={() => setViewMode('table')}
-              >
-                Table View
-              </button>
             </div>
           </div>
           
@@ -501,7 +508,8 @@ const InspectionsPage: React.FC = () => {
                     ))}
                   </select>
                 </div>
-                  <div>
+                
+                <div>
                   <label htmlFor="status" className="block text-xs font-medium text-gray-700 mb-1">
                     Status
                   </label>
@@ -514,7 +522,8 @@ const InspectionsPage: React.FC = () => {
                     {statusOptions.map((option) => (
                       <option key={option} value={option}>
                         {option}
-                      </option>                    ))}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 
@@ -576,7 +585,8 @@ const InspectionsPage: React.FC = () => {
           )}
         </CardContent>
       </Card>
-        {/* Delete Confirmation Modal */}
+
+      {/* Delete Confirmation Modal */}
       <Modal
         isOpen={deleteModalOpen}
         onClose={() => {
@@ -634,7 +644,8 @@ const InspectionsPage: React.FC = () => {
           </div>
           <p className="text-gray-600">{error}</p>
         </div>
-      ) : (<>
+      ) : (
+        <>
           {/* View mode toggle */}
           {userInspections.length > 0 && (
             <div className="flex justify-end mb-4">
@@ -665,99 +676,10 @@ const InspectionsPage: React.FC = () => {
             </div>
           )}
           
-          {/* Table View */}
+          {/* Main Content */}
           {viewMode === 'table' ? (
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Inspection Type
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Category
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Inspector
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {userInspections.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
-                          No inspections found matching your criteria.
-                        </td>
-                      </tr>
-                    ) : (
-                      userInspections.map((inspection) => (
-                        <tr key={inspection._id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Link to={`/inspections/${inspection._id}`} className="text-sm font-medium text-gray-900 hover:text-blue-600">
-                              {inspection.inspectionType}
-                            </Link>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-gray-600">{inspection.category}</span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-gray-600">
-                              {new Date(inspection.inspectionDate).toLocaleDateString()}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-gray-600">{inspection.assignedToName}</span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Badge 
-                              variant={
-                                inspection.status === 'approved' 
-                                  ? 'success' 
-                                  : inspection.status === 'rejected'
-                                    ? 'danger'
-                                    : 'warning'
-                              }
-                              size="sm"
-                            >
-                              {inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
-                            </Badge>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <Link to={`/inspections/${inspection._id}`} className="text-blue-600 hover:text-blue-900 mr-3">
-                              View
-                            </Link>
-                            {isAdmin && (
-                              <button 
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  handleDeleteClick(e, inspection);
-                                }}
-                                className="text-red-600 hover:text-red-900"
-                              >
-                                Delete
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          ) : (
-            /* Grouped View */
             groupByWorkflow ? (
+              /* Grouped Table View */
               <div className="space-y-6">
                 {Object.keys(groupedInspections).length === 0 ? (
                   <div className="text-center py-12">
@@ -765,45 +687,70 @@ const InspectionsPage: React.FC = () => {
                   </div>
                 ) : (
                   Object.entries(groupedInspections).map(([workflowName, workflowInspections]) => (
-                  <Card key={workflowName} className="overflow-hidden">
-                    <div 
-                      className="bg-gray-50 p-4 cursor-pointer flex items-center justify-between"
-                      onClick={() => toggleWorkflowExpansion(workflowName)}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <Folder className="h-5 w-5 text-blue-600" />
-                        <h3 className="font-medium text-gray-900">{workflowName}</h3>
-                        <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full text-xs">
-                          {workflowInspections.length}
-                        </span>
+                    <Card key={workflowName} className="overflow-hidden">
+                      <div 
+                        className="bg-gray-50 p-4 cursor-pointer flex items-center justify-between"
+                        onClick={() => toggleWorkflowExpansion(workflowName)}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <Folder className="h-5 w-5 text-blue-600" />
+                          <h3 className="font-medium text-gray-900">{workflowName}</h3>
+                          <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full text-xs">
+                            {workflowInspections.length}
+                          </span>
+                        </div>
+                        {expandedWorkflows[workflowName] ? (
+                          <ChevronDown className="h-5 w-5 text-gray-500" />
+                        ) : (
+                          <ChevronRight className="h-5 w-5 text-gray-500" />
+                        )}
                       </div>
-                      {expandedWorkflows[workflowName] ? (
-                        <ChevronDown className="h-5 w-5 text-gray-500" />
-                      ) : (
-                        <ChevronRight className="h-5 w-5 text-gray-500" />
-                      )}
-                    </div>                    
-                    {expandedWorkflows[workflowName] && (
-                      <div className="p-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {workflowInspections.map((inspection) => (
-                            <Card key={inspection._id} className="h-full transition-shadow hover:shadow-lg">
-                              <CardContent className="p-4">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <Link 
-                                      to={`/inspections/${inspection._id}`}
-                                      className="group block"
-                                    >
-                                      <h3 className="text-lg font-medium text-gray-900 group-hover:text-blue-600">
-                                        {inspection.inspectionType}
-                                      </h3>
+                      
+                      {expandedWorkflows[workflowName] && (
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Inspection Type
+                                </th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Category
+                                </th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Date
+                                </th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Inspector
+                                </th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Status
+                                </th>
+                                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Actions
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {workflowInspections.map((inspection) => (
+                                <tr key={inspection._id} className="hover:bg-gray-50">
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <Link to={`/inspections/${inspection._id}`} className="text-sm font-medium text-gray-900 hover:text-blue-600">
+                                      {inspection.inspectionType}
                                     </Link>
-                                    <p className="text-sm text-gray-500 mt-1">
-                                      {inspection.category}
-                                    </p>
-                                  </div>
-                                  <div className="flex flex-col gap-1">
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className="text-sm text-gray-600">{inspection.category}</span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className="text-sm text-gray-600">
+                                      {new Date(inspection.inspectionDate).toLocaleDateString()}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className="text-sm text-gray-600">{inspection.assignedToName}</span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
                                     <Badge 
                                       variant={
                                         inspection.status === 'approved' 
@@ -812,8 +759,188 @@ const InspectionsPage: React.FC = () => {
                                             ? 'danger'
                                             : 'warning'
                                       }
+                                      size="sm"
                                     >
                                       {inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
+                                    </Badge>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <Link to={`/inspections/${inspection._id}`} className="text-blue-600 hover:text-blue-900 mr-3">
+                                      View
+                                    </Link>
+                                    {isAdmin && (
+                                      <button 
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          handleDeleteClick(e, inspection);
+                                        }}
+                                        className="text-red-600 hover:text-red-900"
+                                      >
+                                        Delete
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </Card>
+                  ))
+                )}
+              </div>
+            ) : (
+              /* Ungrouped Table View */
+              <Card>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Inspection Type
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Category
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Date
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Inspector
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {userInspections.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                            No inspections found matching your criteria.
+                          </td>
+                        </tr>
+                      ) : (
+                        userInspections.map((inspection) => (
+                          <tr key={inspection._id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <Link to={`/inspections/${inspection._id}`} className="text-sm font-medium text-gray-900 hover:text-blue-600">
+                                {inspection.inspectionType}
+                              </Link>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm text-gray-600">{inspection.category}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm text-gray-600">
+                                {new Date(inspection.inspectionDate).toLocaleDateString()}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm text-gray-600">{inspection.assignedToName}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <Badge 
+                                variant={
+                                  inspection.status === 'approved' 
+                                    ? 'success' 
+                                    : inspection.status === 'rejected'
+                                      ? 'danger'
+                                      : 'warning'
+                                }
+                                size="sm"
+                              >
+                                {inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
+                              </Badge>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <Link to={`/inspections/${inspection._id}`} className="text-blue-600 hover:text-blue-900 mr-3">
+                                View
+                              </Link>
+                              {isAdmin && (
+                                <button 
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleDeleteClick(e, inspection);
+                                  }}
+                                  className="text-red-600 hover:text-red-900"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )
+          ) : (
+            /* Card View */
+            groupByWorkflow ? (
+              /* Grouped Card View */
+              <div className="space-y-6">
+                {Object.keys(groupedInspections).length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">No inspections found matching your criteria.</p>
+                  </div>
+                ) : (
+                  Object.entries(groupedInspections).map(([workflowName, workflowInspections]) => (
+                    <Card key={workflowName} className="overflow-hidden">
+                      <div 
+                        className="bg-gray-50 p-4 cursor-pointer flex items-center justify-between"
+                        onClick={() => toggleWorkflowExpansion(workflowName)}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <Folder className="h-5 w-5 text-blue-600" />
+                          <h3 className="font-medium text-gray-900">{workflowName}</h3>
+                          <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full text-xs">
+                            {workflowInspections.length}
+                          </span>
+                        </div>
+                        {expandedWorkflows[workflowName] ? (
+                          <ChevronDown className="h-5 w-5 text-gray-500" />
+                        ) : (
+                          <ChevronRight className="h-5 w-5 text-gray-500" />
+                        )}
+                      </div>                    
+                      {expandedWorkflows[workflowName] && (
+                        <div className="p-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {workflowInspections.map((inspection) => (
+                              <Card key={inspection._id} className="h-full transition-shadow hover:shadow-lg">
+                                <CardContent className="p-4">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <Link 
+                                        to={`/inspections/${inspection._id}`}
+                                        className="group block"
+                                      >
+                                        <h3 className="text-lg font-medium text-gray-900 group-hover:text-blue-600">
+                                          {inspection.inspectionType}
+                                        </h3>
+                                      </Link>
+                                      <p className="text-sm text-gray-500 mt-1">
+                                        {inspection.category}
+                                      </p>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                      <Badge 
+                                        variant={
+                                          inspection.status === 'approved' 
+                                            ? 'success' 
+                                            : inspection.status === 'rejected'
+                                              ? 'danger'
+                                              : 'warning'
+                                        }
+                                      >
+                                        {inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
                                       </Badge>
                                       
                                       {inspection.status === 'pending' && 
@@ -849,89 +976,91 @@ const InspectionsPage: React.FC = () => {
                                   </div>
                                 </CardContent>
                               </Card>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </Card>
-                ))
-              )}
-            </div>
-          ) : (
-            /* Ungrouped View (Original) */
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {userInspections.length === 0 ? (
-                <div className="col-span-full text-center py-12">
-                  <p className="text-gray-500">No inspections found matching your criteria.</p>
-                </div>
-              ) : (
-                userInspections.map((inspection) => (
-                  <Link 
-                    key={inspection._id} 
-                    to={`/inspections/${inspection._id}`}
-                    className="group block"
-                  >
-                    <Card className="h-full transition-shadow hover:shadow-lg">
-                      <CardContent className="p-6">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="text-lg font-medium text-gray-900 group-hover:text-blue-600">
-                              {inspection.workflowName}
-                            </h3>
-                            <p className="text-sm text-gray-500 mt-1">
-                              {inspection.inspectionType}
-                            </p>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <Badge 
-                              variant={
-                                inspection.status === 'approved' 
-                                  ? 'success' 
-                                  : inspection.status === 'rejected'
-                                    ? 'danger'
-                                    : 'warning'
-                              }
-                            >
-                              {inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
-                            </Badge>
-                            
-                            {inspection.status === 'pending' && 
-                            (inspection.assignedTo === inspection.approverId || 
-                              inspection.approvers?.some(a => a.userId === inspection.assignedTo)) && (
-                              <Badge variant="warning" className="text-xs">
-                                Needs Admin Approval
-                              </Badge>
-                            )}
+                            ))}
                           </div>
                         </div>
-                        
-                        <div className="mt-4 pt-4 border-t border-gray-200">
-                          <div className="flex justify-between text-sm">
+                      )}
+                    </Card>
+                  ))
+                )}
+              </div>
+            ) : (
+              /* Ungrouped Card View */
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {userInspections.length === 0 ? (
+                  <div className="col-span-full text-center py-12">
+                    <p className="text-gray-500">No inspections found matching your criteria.</p>
+                  </div>
+                ) : (
+                  userInspections.map((inspection) => (
+                    <Link 
+                      key={inspection._id} 
+                      to={`/inspections/${inspection._id}`}
+                      className="group block"
+                    >
+                      <Card className="h-full transition-shadow hover:shadow-lg">
+                        <CardContent className="p-6">
+                          <div className="flex justify-between items-start">
                             <div>
-                              <p className="text-gray-500">Inspector</p>
-                              <p className="font-medium text-gray-900">{inspection.assignedToName}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-500">Approvers</p>
-                              <p className="font-medium text-gray-900">
-                                {inspection.approverName}
-                                {inspection.approvers && inspection.approvers.length > 1 && 
-                                  ` + ${inspection.approvers.length - 1} more`}
+                              <h3 className="text-lg font-medium text-gray-900 group-hover:text-blue-600">
+                                {inspection.workflowName}
+                              </h3>
+                              <p className="text-sm text-gray-500 mt-1">
+                                {inspection.inspectionType}
                               </p>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <Badge 
+                                variant={
+                                  inspection.status === 'approved' 
+                                    ? 'success' 
+                                    : inspection.status === 'rejected'
+                                      ? 'danger'
+                                      : 'warning'
+                                }
+                              >
+                                {inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
+                              </Badge>
+                              
+                              {inspection.status === 'pending' && 
+                              (inspection.assignedTo === inspection.approverId || 
+                                inspection.approvers?.some(a => a.userId === inspection.assignedTo)) && (
+                                <Badge variant="warning" className="text-xs">
+                                  Needs Admin Approval
+                                </Badge>
+                              )}
                             </div>
                           </div>
                           
-                          <div className="mt-4 flex items-center text-sm text-gray-500">
-                            <CalendarIcon className="h-4 w-4 mr-1" />
-                            <span>{inspection.inspectionDate}</span>
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <div className="flex justify-between text-sm">
+                              <div>
+                                <p className="text-gray-500">Inspector</p>
+                                <p className="font-medium text-gray-900">{inspection.assignedToName}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Approvers</p>
+                                <p className="font-medium text-gray-900">
+                                  {inspection.approverName}
+                                  {inspection.approvers && inspection.approvers.length > 1 && 
+                                    ` + ${inspection.approvers.length - 1} more`}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <div className="mt-4 flex items-center text-sm text-gray-500">
+                              <CalendarIcon className="h-4 w-4 mr-1" />
+                              <span>{inspection.inspectionDate}</span>
+                            </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>                  </Link>                ))
-              )}
-            </div>
-          )
-        )}
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))
+                )}
+              </div>
+            )
+          )}
         </>
       )}
     </div>

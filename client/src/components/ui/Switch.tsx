@@ -13,15 +13,18 @@ const Switch: React.FC<SwitchProps> = ({
   className = '',
   disabled = false
 }) => {
-  // Generate a unique ID for this switch instance
   const id = React.useMemo(() => `switch-${Math.random().toString(36).substring(7)}`, []);
   
-  const handleChange = React.useCallback(() => {
+  const handleChange = React.useCallback((e: React.MouseEvent | React.KeyboardEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (!disabled) {
+      console.log('Switch clicked - Current state:', checked, 'New state:', !checked);
       onChange(!checked);
     }
   }, [checked, disabled, onChange]);
-  
+
   return (
     <div 
       className={`relative inline-block w-10 align-middle select-none ${className} ${disabled ? 'opacity-60' : ''}`} 
@@ -32,7 +35,8 @@ const Switch: React.FC<SwitchProps> = ({
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          handleChange();
+          console.log('Switch activated via keyboard - Current state:', checked, 'New state:', !checked);
+          handleChange(e);
         }
       }}
     >
@@ -42,13 +46,14 @@ const Switch: React.FC<SwitchProps> = ({
         id={id}
         className="sr-only"
         checked={checked}
-        onChange={handleChange}  // Add real handler for proper accessibility
+        onChange={() => {}} // Empty function to prevent conflicts
         disabled={disabled}
+        tabIndex={-1} // Remove from tab order since parent div handles it
       />
       <label
         htmlFor={id}
-        className={`block overflow-hidden h-6 rounded-full cursor-pointer transition-colors duration-200 ease-in-out ${
-          disabled ? 'bg-gray-300 cursor-not-allowed' : checked ? 'bg-blue-600' : 'bg-gray-200'
+        className={`block overflow-hidden h-6 rounded-full pointer-events-none transition-colors duration-200 ease-in-out ${
+          disabled ? 'bg-gray-300' : checked ? 'bg-blue-600' : 'bg-gray-200'
         }`}
       >
         <span
