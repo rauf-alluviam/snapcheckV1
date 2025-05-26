@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { useAuth } from '../../contexts/AuthContext';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
-import { Mail, Lock } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 interface LoginFormInputs {
   email: string;
@@ -48,6 +48,10 @@ const LoginForm: React.FC = () => {
     }
   };
 
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {error && (
@@ -56,43 +60,62 @@ const LoginForm: React.FC = () => {
         </div>
       )}
       
-      <div className="space-y-4">        <Input
-          label="Email Address"
-          type="email"
-          {...register('email', { 
-            required: 'Email is required',
-            pattern: {
-              value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-              message: 'Invalid email address'
-            }
-          })}
-          error={errors.email?.message}
-          leftAddon={<div className="px-3 py-2 bg-gray-50 border-r border-gray-300 rounded-l-md"><Mail className="h-5 w-5 text-gray-400" /></div>}
-        />
+      <div className="space-y-4">
+        {/* Email Field with External Icon */}
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <Mail className="mt-5 h-5 w-5 text-gray-400" />
+          </div>
+          <div className="flex-1">
+            <Input
+              label="Email Address"
+              type="email"
+              {...register('email', { 
+                required: 'Email is required',
+                pattern: {
+                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                  message: 'Invalid email address'
+                }
+              })}
+              error={errors.email?.message}
+            />
+          </div>
+        </div>
         
-        <Input
-          label="Password"
-          type={showPassword ? 'text' : 'password'}
-          {...register('password', { 
-            required: 'Password is required',
-            minLength: {
-              value: 6,
-              message: 'Password must be at least 6 characters'
-            }
-          })}
-          error={errors.password?.message}          leftAddon={<div className="px-3 py-2 bg-gray-50 border-r border-gray-300 rounded-l-md"><Lock className="h-5 w-5 text-gray-400" /></div>}
-          rightAddon={
-            <div className="pr-3">
-              <button 
-                type="button" 
-                className="text-gray-400 hover:text-gray-500 bg-transparent px-2 py-1 rounded transition-colors"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? 'Hide' : 'Show'}
-              </button>
-            </div>
-          }
-        />
+        {/* Password Field with External Icon and Toggle */}
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <Lock className="mt-5 h-5 w-5 text-gray-400" />
+          </div>
+          <div className="flex-1 relative">
+            <Input
+              label="Password"
+              type={showPassword ? 'text' : 'password'}
+              {...register('password', { 
+                required: 'Password is required',
+                minLength: {
+                  value: 6,
+                  message: 'Password must be at least 6 characters'
+                }
+              })}
+              error={errors.password?.message}
+              className="pr-12" // Add padding to make room for the button
+            />
+            {/* Show/Hide Password Button */}
+            <button 
+              type="button" 
+              className="absolute right-3 top-11 transform text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600 transition-colors"
+              onClick={togglePasswordVisibility}
+              tabIndex={-1} // Prevent tab focus
+            >
+              {showPassword ? (
+                <EyeOff className="h-5 w-5" />
+              ) : (
+                <Eye className="h-5 w-5" />
+              )}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="flex items-center justify-between">

@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
-import { Mail, Lock, User, Building, Phone, Globe } from 'lucide-react';
+import { Mail, Lock, User, Building, Phone, Globe, Eye, EyeOff } from 'lucide-react';
 import api from '../../utils/api';
 
 /**
@@ -47,8 +47,11 @@ interface RegisterFormInputs {
 }
 
 const RegisterForm: React.FC = () => {
-  const { register: registerUser, state } = useAuth();  const { loading, error } = state;  const navigate = useNavigate();
+  const { register: registerUser, state } = useAuth();
+  const { loading, error } = state;
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [organizations, setOrganizations] = useState<Array<{ value: string; label: string; }>>([]);
   const [loadingOrgs, setLoadingOrgs] = useState(true);
   const [orgLoadError, setOrgLoadError] = useState<string | null>(null);
@@ -60,7 +63,17 @@ const RegisterForm: React.FC = () => {
     watch
   } = useForm<RegisterFormInputs>();
   
-  const password = watch('password');  const onSubmit = async (data: RegisterFormInputs) => {
+  const password = watch('password');
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword);
+  };
+
+  const onSubmit = async (data: RegisterFormInputs) => {
     try {
       let organizationId = data.organizationId;
       
@@ -122,7 +135,9 @@ const RegisterForm: React.FC = () => {
       console.error('Registration failed:', err);
       // The error will be handled by the AuthContext and displayed via the error state
     }
-  };  // Load organizations on component mount
+  };
+
+  // Load organizations on component mount
   useEffect(() => {
     const loadOrganizations = async () => {
       setLoadingOrgs(true);
@@ -152,6 +167,7 @@ const RegisterForm: React.FC = () => {
 
     loadOrganizations();
   }, []);
+
   // Load custom roles for selected organization
   const [roleOptions, setRoleOptions] = useState([
     { value: 'admin', label: 'Administrator' },
@@ -195,68 +211,118 @@ const RegisterForm: React.FC = () => {
       )}
       
       <div className="space-y-4">
-        <Input
-          label="Full Name"
-          type="text"
-          {...register('name', { 
-            required: 'Name is required',
-            minLength: {
-              value: 2,
-              message: 'Name must be at least 2 characters'
-            }
-          })}
-          error={errors.name?.message}
-          leftAddon={<User className="ml-3 h-5 w-5 text-gray-400" />}
-        />
+        {/* Full Name Field with External Icon */}
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <User className="mt-5 h-5 w-5 text-gray-400" />
+          </div>
+          <div className="flex-1">
+            <Input
+              label="Full Name"
+              type="text"
+              {...register('name', { 
+                required: 'Name is required',
+                minLength: {
+                  value: 2,
+                  message: 'Name must be at least 2 characters'
+                }
+              })}
+              error={errors.name?.message}
+            />
+          </div>
+        </div>
         
-        <Input
-          label="Email Address"
-          type="email"
-          {...register('email', { 
-            required: 'Email is required',
-            pattern: {
-              value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-              message: 'Invalid email address'
-            }
-          })}
-          error={errors.email?.message}
-          leftAddon={<Mail className="ml-3 h-5 w-5 text-gray-400" />}
-        />
+        {/* Email Field with External Icon */}
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <Mail className="mt-5 h-5 w-5 text-gray-400" />
+          </div>
+          <div className="flex-1">
+            <Input
+              label="Email Address"
+              type="email"
+              {...register('email', { 
+                required: 'Email is required',
+                pattern: {
+                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                  message: 'Invalid email address'
+                }
+              })}
+              error={errors.email?.message}
+            />
+          </div>
+        </div>
         
-        <Input
-          label="Password"
-          type={showPassword ? 'text' : 'password'}
-          {...register('password', { 
-            required: 'Password is required',
-            minLength: {
-              value: 6,
-              message: 'Password must be at least 6 characters'
-            }
-          })}
-          error={errors.password?.message}
-          leftAddon={<Lock className="ml-3 h-5 w-5 text-gray-400" />}
-          rightAddon={
+        {/* Password Field with External Icon and Toggle */}
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <Lock className="mt-5 h-5 w-5 text-gray-400" />
+          </div>
+          <div className="flex-1 relative">
+            <Input
+              label="Password"
+              type={showPassword ? 'text' : 'password'}
+              {...register('password', { 
+                required: 'Password is required',
+                minLength: {
+                  value: 6,
+                  message: 'Password must be at least 6 characters'
+                }
+              })}
+              error={errors.password?.message}
+              className="pr-12"
+            />
+            {/* Show/Hide Password Button */}
             <button 
               type="button" 
-              className="mr-3 text-gray-400 hover:text-gray-500"
-              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-8 transform text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600 transition-colors p-2"
+              onClick={togglePasswordVisibility}
+              tabIndex={-1}
             >
-              {showPassword ? 'Hide' : 'Show'}
+              {showPassword ? (
+                <EyeOff className="h-6 w-6" />
+              ) : (
+                <Eye className="h-6 w-6" />
+              )}
             </button>
-          }
-        />
+          </div>
+        </div>
         
-        <Input
-          label="Confirm Password"
-          type={showPassword ? 'text' : 'password'}
-          {...register('confirmPassword', { 
-            required: 'Please confirm your password',
-            validate: value => value === password || 'Passwords do not match'
-          })}
-          error={errors.confirmPassword?.message}
-          leftAddon={<Lock className="ml-3 h-5 w-5 text-gray-400" />}
-        />
-          <div className="space-y-4">          <div className="flex items-center space-x-2">            <input
+        {/* Confirm Password Field with External Icon and Toggle */}
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <Lock className="mt-5 h-5 w-5 text-gray-400" />
+          </div>
+          <div className="flex-1 relative">
+            <Input
+              label="Confirm Password"
+              type={showConfirmPassword ? 'text' : 'password'}
+              {...register('confirmPassword', { 
+                required: 'Please confirm your password',
+                validate: value => value === password || 'Passwords do not match'
+              })}
+              error={errors.confirmPassword?.message}
+              className="pr-12"
+            />
+            {/* Show/Hide Confirm Password Button */}
+            <button 
+              type="button" 
+              className="absolute right-3 top-8 transform text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600 transition-colors p-2"
+              onClick={toggleConfirmPasswordVisibility}
+              tabIndex={-1}
+            >
+              {showConfirmPassword ? (
+                <EyeOff className="h-6 w-6" />
+              ) : (
+                <Eye className="h-6 w-6" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <input
               type="checkbox"
               id="createNewOrg"
               className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -270,57 +336,92 @@ const RegisterForm: React.FC = () => {
 
           {watch('createNewOrg') ? (
             <>
-              <Input
-                label="Organization Name"
-                type="text"
-                {...register('orgName', { 
-                  required: 'Organization name is required'
-                })}
-                error={errors.orgName?.message}
-                leftAddon={<Building className="ml-3 h-5 w-5 text-gray-400" />}
-              />
+              {/* Organization Name with External Icon */}
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <Building className="mt-5 h-5 w-5 text-gray-400" />
+                </div>
+                <div className="flex-1">
+                  <Input
+                    label="Organization Name"
+                    type="text"
+                    {...register('orgName', { 
+                      required: 'Organization name is required'
+                    })}
+                    error={errors.orgName?.message}
+                  />
+                </div>
+              </div>
               
-              <Input
-                label="Organization Address"
-                type="text"
-                {...register('orgAddress', { 
-                  required: 'Organization address is required'
-                })}
-                error={errors.orgAddress?.message}
-                leftAddon={<Building className="ml-3 h-5 w-5 text-gray-400" />}
-              />
+              {/* Organization Address with External Icon */}
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <Building className="mt-5 h-5 w-5 text-gray-400" />
+                </div>
+                <div className="flex-1">
+                  <Input
+                    label="Organization Address"
+                    type="text"
+                    {...register('orgAddress', { 
+                      required: 'Organization address is required'
+                    })}
+                    error={errors.orgAddress?.message}
+                  />
+                </div>
+              </div>
               
-              <Input
-                label="Organization Phone"
-                type="tel"
-                {...register('orgPhone', { 
-                  required: 'Organization phone is required'
-                })}
-                error={errors.orgPhone?.message}
-                leftAddon={<Phone className="ml-3 h-5 w-5 text-gray-400" />}
-              />
+              {/* Organization Phone with External Icon */}
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <Phone className="mt-5 h-5 w-5 text-gray-400" />
+                </div>
+                <div className="flex-1">
+                  <Input
+                    label="Organization Phone"
+                    type="tel"
+                    {...register('orgPhone', { 
+                      required: 'Organization phone is required'
+                    })}
+                    error={errors.orgPhone?.message}
+                  />
+                </div>
+              </div>
               
-              <Input
-                label="Organization Email"
-                type="email"
-                {...register('orgEmail', { 
-                  required: 'Organization email is required',
-                  pattern: {
-                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: 'Invalid email address'
-                  }
-                })}
-                error={errors.orgEmail?.message}
-                leftAddon={<Mail className="ml-3 h-5 w-5 text-gray-400" />}
-              />
+              {/* Organization Email with External Icon */}
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <Mail className="mt-5 h-5 w-5 text-gray-400" />
+                </div>
+                <div className="flex-1">
+                  <Input
+                    label="Organization Email"
+                    type="email"
+                    {...register('orgEmail', { 
+                      required: 'Organization email is required',
+                      pattern: {
+                        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                        message: 'Invalid email address'
+                      }
+                    })}
+                    error={errors.orgEmail?.message}
+                  />
+                </div>
+              </div>
               
-              <Input
-                label="Industry"
-                type="text"
-                {...register('orgIndustry')}
-                error={errors.orgIndustry?.message}
-                leftAddon={<Globe className="ml-3 h-5 w-5 text-gray-400" />}
-              />
+              {/* Industry with External Icon */}
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <Globe className="mt-5 h-5 w-5 text-gray-400" />
+                </div>
+                <div className="flex-1">
+                  <Input
+                    label="Industry"
+                    type="text"
+                    {...register('orgIndustry')}
+                    error={errors.orgIndustry?.message}
+                  />
+                </div>
+              </div>
               
               <Select
                 label="Organization Size"
@@ -333,7 +434,8 @@ const RegisterForm: React.FC = () => {
                 {...register('orgSize', { required: 'Organization size is required' })}
                 error={errors.orgSize?.message}
               />
-            </>          ) : (
+            </>
+          ) : (
             <>
               {loadingOrgs ? (
                 <div className="flex items-center justify-center p-4 border border-gray-200 rounded-md">
@@ -342,7 +444,8 @@ const RegisterForm: React.FC = () => {
                 </div>
               ) : orgLoadError ? (
                 <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm mb-4">
-                  {orgLoadError}                  <button 
+                  {orgLoadError}
+                  <button 
                     onClick={() => {
                       // Set the createNewOrg field to true
                       const createNewOrgField = 'createNewOrg';

@@ -50,13 +50,14 @@ enum ActionType {
   LOGOUT = 'LOGOUT',
   AUTH_ERROR = 'AUTH_ERROR',
   USER_LOADED = 'USER_LOADED',
-  AUTH_LOADING = 'AUTH_LOADING'
+  AUTH_LOADING = 'AUTH_LOADING',
+  SET_UNAUTHENTICATED = 'SET_UNAUTHENTICATED' // Add this new action
 }
 
 type Action =
   | { type: ActionType.LOGIN_SUCCESS | ActionType.REGISTER_SUCCESS | ActionType.USER_LOADED; payload: AuthResponse }
   | { type: ActionType.LOGIN_FAIL | ActionType.REGISTER_FAIL | ActionType.AUTH_ERROR; payload: string }
-  | { type: ActionType.LOGOUT }
+  | { type: ActionType.LOGOUT | ActionType.SET_UNAUTHENTICATED }
   | { type: ActionType.AUTH_LOADING };
 
 const authReducer = (state: AuthState, action: Action): AuthState => {
@@ -101,6 +102,14 @@ const authReducer = (state: AuthState, action: Action): AuthState => {
         user: null,
         loading: false,
         error: null,
+      };
+    case ActionType.SET_UNAUTHENTICATED:
+      return {
+        ...state,
+        isAuthenticated: false,
+        user: null,
+        loading: false,
+        error: null, // No error message
       };
     default:
       return state;
@@ -158,8 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (!token) {
       dispatch({
-        type: ActionType.AUTH_ERROR,
-        payload: 'No token found',
+        type: ActionType.SET_UNAUTHENTICATED,
       });
       return;
     }
