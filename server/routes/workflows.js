@@ -1,6 +1,6 @@
 import express from 'express';
 import Workflow from '../models/Workflow.js';
-import { auth, isAdmin, sameOrganization } from '../middleware/auth.js';
+import { auth, isAdmin, sameOrganization, canEditWorkflow } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -56,14 +56,14 @@ router.post('/', isAdmin, async (req, res) => {
     if (!name || !category || !description || !steps || !Array.isArray(steps) || steps.length === 0) {
       return res.status(400).json({ message: 'All fields are required and steps must be a non-empty array' });
     }
-    
-    // Create new workflow
+      // Create new workflow
     const workflow = new Workflow({
       name,
       category,
       description,
       steps,
-      organizationId: req.user.organizationId
+      organizationId: req.user.organizationId,
+      createdBy: req.user.userId
     });
     
     // Save workflow
@@ -78,8 +78,8 @@ router.post('/', isAdmin, async (req, res) => {
 
 // @route   PUT api/workflows/:id
 // @desc    Update a workflow
-// @access  Private (Admin only)
-router.put('/:id', isAdmin, async (req, res) => {
+// @access  Private (Admin or Creator only)
+router.put('/:id', canEditWorkflow, async (req, res) => {
   try {
     const { name, category, description, steps } = req.body;
     
@@ -88,17 +88,8 @@ router.put('/:id', isAdmin, async (req, res) => {
       return res.status(400).json({ message: 'All fields are required and steps must be a non-empty array' });
     }
     
-    // Find workflow
-    let workflow = await Workflow.findById(req.params.id);
-    
-    if (!workflow) {
-      return res.status(404).json({ message: 'Workflow not found' });
-    }
-    
-    // Check if user has access to update this workflow (same organization)
-    if (workflow.organizationId.toString() !== req.user.organizationId) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
+    // Use the workflow from middleware
+    let workflow = req.workflow;
     
     // Update workflow
     workflow = await Workflow.findByIdAndUpdate(
@@ -121,18 +112,11 @@ router.put('/:id', isAdmin, async (req, res) => {
 
 // @route   DELETE api/workflows/:id
 // @desc    Delete a workflow
-// @access  Private (Admin only)
-router.delete('/:id', isAdmin, async (req, res) => {
+// @access  Private (Admin or Creator only)
+router.delete('/:id', canEditWorkflow, async (req, res) => {
   try {
-    const workflow = await Workflow.findById(req.params.id);
-    
-    if (!workflow) {
-      return res.status(404).json({ message: 'Workflow not found' });
-    }
-      // Check if user has access to delete this workflow (same organization)
-    if (workflow.organizationId.toString() !== req.user.organizationId) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
+    // Use the workflow from middleware
+    const workflow = req.workflow;
     
     await workflow.deleteOne();
     
@@ -163,14 +147,14 @@ router.post('/duplicate/:id', isAdmin, async (req, res) => {
     if (workflow.organizationId.toString() !== req.user.organizationId) {
       return res.status(403).json({ message: 'Access denied' });
     }
-    
-    // Create new workflow based on the existing one
+      // Create new workflow based on the existing one
     const newWorkflow = new Workflow({
       name: `${workflow.name} (Copy)`,
       category: workflow.category,
       description: workflow.description,
       steps: workflow.steps,
-      organizationId: req.user.organizationId
+      organizationId: req.user.organizationId,
+      createdBy: req.user.userId
     });
     
     // Save new workflow

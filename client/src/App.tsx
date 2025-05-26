@@ -1,4 +1,3 @@
-import { StrictMode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { OrganizationProvider } from './contexts/OrganizationContext';
@@ -13,6 +12,7 @@ import BatchApprovalsPage from './pages/Inspections/BatchApprovalsPage';
 import WorkflowsPage from './pages/Workflows/WorkflowsPage';
 import WorkflowDetailPage from './pages/Workflows/WorkflowDetailPage';
 import NewWorkflowPage from './pages/Workflows/NewWorkflowPage';
+import EditWorkflowPage from './pages/Workflows/EditWorkflowPage';
 import ReportsPage from './pages/Reports/ReportsPage';
 import AnalyticsPage from './pages/Analytics/AnalyticsPage';
 import UsersPage from './pages/Users/UsersPage';
@@ -100,17 +100,19 @@ function App() {
                   element={<WorkflowsPage />} 
                   allowedRoles={['admin']}
                 />
-              } />
-              <Route path="workflows/new" element={
+              } />              <Route path="workflows/new" element={
                 <ProtectedRoute 
                   element={<NewWorkflowPage />} 
                   allowedRoles={['admin']}
+                />
+              } />              <Route path="workflows/:id/edit" element={
+                <ProtectedRoute 
+                  element={<EditWorkflowPage />} 
                 />
               } />
               <Route path="workflows/:id" element={
                 <ProtectedRoute 
                   element={<WorkflowDetailPage />} 
-                  allowedRoles={['admin']}
                 />
               } />
               <Route path="analytics" element={

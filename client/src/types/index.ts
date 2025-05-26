@@ -45,6 +45,7 @@ export interface Workflow {
   description: string;
   steps: WorkflowStep[];
   organizationId: string;
+  createdBy: string;
   createdAt: string;
   updatedAt: string;
   isRoutineInspection?: boolean;

@@ -70,6 +70,11 @@ const WorkflowSchema = new mongoose.Schema({
     ref: 'Organization',
     required: true
   },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
   isRoutineInspection: {
     type: Boolean,
     default: false

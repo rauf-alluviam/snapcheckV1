@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { useAuth } from '../../contexts/AuthContext';
@@ -30,17 +30,17 @@ const mockWorkflows = [
 
 const WorkflowDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { state } = useAuth();
+  const navigate = useNavigate();  const { state } = useAuth();
   const { user } = state;
   const isAdmin = user?.role === 'admin';
-  
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  useEffect(() => {
+  // Check if current user can edit this workflow
+  const canEdit = isAdmin || (workflow && workflow.createdBy === user?._id);
+    useEffect(() => {
     const fetchWorkflow = async () => {
       try {
         setIsLoading(true);
@@ -61,6 +61,35 @@ const WorkflowDetailPage: React.FC = () => {
     
     fetchWorkflow();
   }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (error && !workflow) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="mb-4 flex justify-center">
+            <div className="rounded-full bg-red-100 p-6">
+              <FileText className="h-12 w-12 text-red-600" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Error Loading Workflow</h2>
+          <p className="text-gray-600 max-w-md mb-6">
+            {error}
+          </p>
+          <Button variant="primary" onClick={() => navigate('/workflows')}>
+            Return to Workflows
+          </Button>
+        </div>
+      </div>
+    );
+  }
   
   const handleDelete = async () => {
     setIsLoading(true);
@@ -88,32 +117,10 @@ const WorkflowDetailPage: React.FC = () => {
       setIsLoading(false);
     }
   };
-  
   if (!workflow) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-  
-  if (!isAdmin) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="mb-4 flex justify-center">
-            <div className="rounded-full bg-red-100 p-6">
-              <FileText className="h-12 w-12 text-red-600" />
-            </div>
-          </div>
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
-          <p className="text-gray-600 max-w-md mb-6">
-            You don't have permission to access workflow management. This feature is only available to administrators.
-          </p>
-          <Button variant="primary" onClick={() => navigate('/dashboard')}>
-            Return to Dashboard
-          </Button>
-        </div>
       </div>
     );
   }
@@ -129,8 +136,7 @@ const WorkflowDetailPage: React.FC = () => {
               Created on {new Date(workflow.createdAt).toLocaleDateString()}
             </span>
           </div>
-        </div>
-        <div className="flex space-x-3">
+        </div>        <div className="flex space-x-3">
           <Button
             variant="outline"
             leftIcon={<Copy size={16} />}
@@ -138,20 +144,24 @@ const WorkflowDetailPage: React.FC = () => {
           >
             Duplicate
           </Button>
-          <Button
-            variant="outline"
-            leftIcon={<Edit size={16} />}
-            onClick={() => navigate(`/workflows/${id}/edit`)}
-          >
-            Edit
-          </Button>
-          <Button
-            variant="danger"
-            leftIcon={<Trash2 size={16} />}
-            onClick={() => setIsDeleteModalOpen(true)}
-          >
-            Delete
-          </Button>
+          {canEdit && (
+            <>
+              <Button
+                variant="outline"
+                leftIcon={<Edit size={16} />}
+                onClick={() => navigate(`/workflows/${id}/edit`)}
+              >
+                Edit
+              </Button>
+              <Button
+                variant="danger"
+                leftIcon={<Trash2 size={16} />}
+                onClick={() => setIsDeleteModalOpen(true)}
+              >
+                Delete
+              </Button>
+            </>
+          )}
         </div>
       </div>
       
