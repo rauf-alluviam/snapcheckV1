@@ -81,8 +81,8 @@ const Layout: React.FC = () => {
           {/* Static sidebar for desktop */}
           <Sidebar />
         </>
-      )}        {/* Content area - always present but with different width based on auth state */}
-      <div className={`flex flex-col ${isAuthenticated ? 'w-0 flex-1' : 'w-full'} overflow-hidden`}>
+      )}      {/* Content area - always present but with different width based on auth state */}
+      <div className={`flex flex-col ${isAuthenticated ? 'md:ml-64 w-full' : 'w-full'} overflow-hidden`}>
         <Header toggleSidebar={() => setSidebarOpen(true)} />
         
         {/* Notifications area */}

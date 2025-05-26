@@ -58,7 +58,7 @@ const Sidebar: React.FC = () => {
     navigate('/login');
   };
   return (
-    <div className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 border-r border-gray-200 bg-white">
+    <div className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 border-r border-gray-200 bg-white z-30">
       <div className="flex flex-col flex-grow pt-5 overflow-y-auto">
         <div className="flex items-center flex-shrink-0 px-4 mb-5">
           <span className="text-xl font-bold text-blue-600">Inspect Pro</span>
