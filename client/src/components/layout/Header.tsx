@@ -31,7 +31,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
     if (path === '/settings') return 'Settings';
     if (path === '/login') return 'Login';
     if (path === '/register') return 'Register';
-    return 'Inspect Pro';
+    return 'SnapCheck';
   };
 
   const handleLogout = () => {

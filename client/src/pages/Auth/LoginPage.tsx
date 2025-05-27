@@ -13,7 +13,7 @@ const LoginPage: React.FC = () => {
           </div>
         </div>
         <h2 className="mt-3 text-center text-3xl font-extrabold text-gray-900">
-          Inspect Pro
+          SnapCheck 
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
           Sign in to your account

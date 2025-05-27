@@ -87,7 +87,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose }) => {
           
           <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
             <div className="flex-shrink-0 flex items-center px-4 mb-5">
-              <span className="text-xl font-bold text-blue-600">Inspect Pro</span>
+              <span className="text-xl font-bold text-blue-600">SnapCheck</span>
             </div>
             <nav className="mt-5 space-y-1">
               {/* Common navigation items for all authenticated users */}
