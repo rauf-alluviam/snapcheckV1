@@ -4,6 +4,9 @@ import { OrganizationProvider } from './contexts/OrganizationContext';
 import Layout from './components/layout/Layout';
 import LoginPage from './pages/Auth/LoginPage';
 import RegisterPage from './pages/Auth/RegisterPage';
+import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
+import ResetPasswordPage from './pages/Auth/ResetPasswordPage';
+import ChangePasswordPage from './pages/Auth/ChangePasswordPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import InspectionsPage from './pages/Inspections/InspectionsPage';
 import InspectionDetailPage from './pages/Inspections/InspectionDetailPage';
@@ -24,10 +27,11 @@ function App() {
     <AuthProvider>
       <OrganizationProvider>
         <Router>
-          <Routes>
-            {/* Public routes */}
+          <Routes>            {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
             
             {/* Layout wrapper - Protected */}
             <Route path="/" element={<ProtectedRoute element={<Layout />} />}>
@@ -156,9 +160,9 @@ function App() {
                   allowedRoles={['admin', 'approver', 'inspector']}
                 />
               } />
-              
-              {/* Settings accessible to everyone but with different views */}
+                {/* Settings accessible to everyone but with different views */}
               <Route path="settings" element={<SettingsPage />} />
+              <Route path="change-password" element={<ChangePasswordPage />} />
             </Route>
             
             {/* Fallback route for any unmatched paths */}

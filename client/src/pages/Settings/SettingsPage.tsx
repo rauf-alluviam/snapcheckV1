@@ -205,56 +205,7 @@ const SettingsPage: React.FC = () => {
                     leftAddon={<Mail className="ml-3 h-5 w-5 text-gray-400" />}
                   />
                 </div>
-                
-                <div className="bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl p-6 space-y-4">
-                  <div className="flex items-center space-x-2 mb-4">
-                    <Shield className="w-5 h-5 text-blue-600" />
-                    <h3 className="text-lg font-semibold text-gray-800">Change Password</h3>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 gap-4">
-                    <Input
-                      label="Current Password"
-                      name="currentPassword"
-                      type="password"
-                      value={profileForm.currentPassword}
-                      onChange={handleProfileFormChange}
-                      error={profileFormErrors.currentPassword}
-                    />
-                    
-                    <Input
-                      label="New Password"
-                      name="newPassword"
-                      type="password"
-                      value={profileForm.newPassword}
-                      onChange={handleProfileFormChange}
-                      error={profileFormErrors.newPassword}
-                      helperText="Leave blank if you don't want to change"
-                    />
-                    
-                    <Input
-                      label="Confirm New Password"
-                      name="confirmPassword"
-                      type="password"
-                      value={profileForm.confirmPassword}
-                      onChange={handleProfileFormChange}
-                      error={profileFormErrors.confirmPassword}
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex justify-end pt-4">
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    size="lg"
-                    leftIcon={<Save size={18} />}
-                    isLoading={isProfileFormSubmitting}
-                    className="px-8"
-                  >
-                    Save Profile
-                  </Button>
-                </div>
+              
               </form>
             </CardContent>
           </Card>

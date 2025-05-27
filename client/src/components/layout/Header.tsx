@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, Bell, X, LogOut, Settings, User as UserIcon } from 'lucide-react';
+import { Menu, Bell, X, LogOut, Settings, User as UserIcon, Lock } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -138,8 +138,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
                       >
                         <UserIcon className="mr-2 h-5 w-5" />
                         Profile
-                      </button>
-                      <button 
+                      </button>                      <button 
                         onClick={() => {
                           navigate('/settings');
                           setShowUserMenu(false);
@@ -148,6 +147,16 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
                       >
                         <Settings className="mr-2 h-5 w-5" />
                         Settings
+                      </button>
+                      <button 
+                        onClick={() => {
+                          navigate('/change-password');
+                          setShowUserMenu(false);
+                        }}
+                        className="flex px-4 py-2 text-sm text-gray-700 w-full text-left hover:bg-gray-100"
+                      >
+                        <Lock className="mr-2 h-5 w-5" />
+                        Change Password
                       </button>
                       <button 
                         onClick={handleLogout}

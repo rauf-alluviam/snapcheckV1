@@ -21,7 +21,16 @@ const UserSchema = new mongoose.Schema({
   address: {
     type: String,
     required: false // Assuming address is optional
-  },  role: {
+  },
+  resetPasswordToken: {
+    type: String,
+    required: false
+  },
+  resetPasswordExpires: {
+    type: Date,
+    required: false
+  },
+  role: {
     type: String,
     enum: ['admin', 'inspector', 'approver', 'custom'],
     default: 'inspector'

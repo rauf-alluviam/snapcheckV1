@@ -33,6 +33,9 @@ interface AuthContextProps {
   ) => Promise<{ success: boolean; data?: any; error?: string }>;
   logout: () => void;
   checkAuth: () => Promise<void>;
+  forgotPassword: (email: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  resetPassword: (token: string, password: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; message?: string; error?: string }>;
 }
 
 const initialState: AuthState = {
@@ -288,6 +291,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Dispatch logout action to clear auth state
     dispatch({ type: ActionType.LOGOUT });
   };
+  // Forgot Password function
+  const forgotPassword = async (email: string) => {
+    try {
+      // Send request to forgot password endpoint
+      await api.post('/api/auth/forgot-password', { email });
+      
+      // Always return success even if email doesn't exist (for security)
+      return { 
+        success: true, 
+        message: 'If the email address is registered, you will receive password reset instructions.' 
+      };
+    } catch (err: any) {
+      console.error('Forgot password error:', err);
+      
+      return { 
+        success: false, 
+        error: err.response?.data?.message || 'Failed to process forgotten password request.' 
+      };
+    }
+  };
+  
+  // Reset Password function (with token)
+  const resetPassword = async (token: string, password: string) => {
+    try {
+      // Send request to reset password endpoint
+      const res = await api.post(`/api/auth/reset-password/${token}`, { password });
+      
+      return { 
+        success: true, 
+        message: res.data.message || 'Password has been reset successfully.' 
+      };
+    } catch (err: any) {
+      console.error('Reset password error:', err);
+      
+      return { 
+        success: false, 
+        error: err.response?.data?.message || 'Failed to reset password. Token may be invalid or expired.' 
+      };
+    }
+  };
+  
+  // Change Password function (when logged in)
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    try {
+      // Send request to change password endpoint
+      const res = await api.post('/api/auth/change-password', { 
+        currentPassword, 
+        newPassword 
+      });
+      
+      return { 
+        success: true, 
+        message: res.data.message || 'Password changed successfully.' 
+      };
+    } catch (err: any) {
+      console.error('Change password error:', err);
+      
+      return { 
+        success: false, 
+        error: err.response?.data?.message || 'Failed to change password.' 
+      };
+    }
+  };
 
   return (
     <AuthContext.Provider
@@ -297,6 +363,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         checkAuth,
+        forgotPassword,
+        resetPassword,
+        changePassword,
       }}
     >
       {children}
