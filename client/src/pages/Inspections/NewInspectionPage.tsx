@@ -411,7 +411,7 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
                                     </p>
                                   )}
                                 </div>
-                                <Button
+                                {/* <Button
                                   type="button"
                                   variant="outline"
                                   size="sm"
@@ -448,7 +448,7 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
                                   }}
                                 >
                                   Camera
-                                </Button>
+                                </Button> */}
                               </div>
                             </div>
                           )}
