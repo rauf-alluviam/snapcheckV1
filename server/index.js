@@ -34,7 +34,7 @@ app.use(express.urlencoded({ extended: true }));
 // Configure CORS for both development and production
 app.use(cors({
   origin: [
-    'http://localhost:3000',               // Local development
+    'http://localhost:3001',               // Local development
     'http://localhost:5173',               // Vite dev server
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',

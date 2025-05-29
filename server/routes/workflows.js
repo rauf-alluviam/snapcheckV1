@@ -63,7 +63,7 @@ router.post('/', isAdmin, async (req, res) => {
       description,
       steps,
       organizationId: req.user.organizationId,
-      createdBy: req.user.userId
+      createdBy: req.user.id
     });
     
     // Save workflow
