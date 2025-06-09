@@ -4,7 +4,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
-import Select from '../../components/ui/Select';
+import CategorySelect from '../../components/ui/CategorySelect';
 import { useAuth } from '../../contexts/AuthContext';
 import { Plus, Trash2, MoveUp, MoveDown, Info } from 'lucide-react';
 import api from '../../utils/api';
@@ -22,13 +22,6 @@ interface FormValues {
   steps: Step[];
 }
 
-const categoryOptions = [
-  { value: 'Cargo', label: 'Cargo' },
-  { value: 'Facility', label: 'Facility' },
-  { value: 'Vehicle', label: 'Vehicle' },
-  { value: 'Custom', label: 'Custom' }
-];
-
 const NewWorkflowPage: React.FC = () => {
   const navigate = useNavigate();
   const { state } = useAuth();
@@ -37,16 +30,17 @@ const NewWorkflowPage: React.FC = () => {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  const { 
+    const { 
     register, 
     handleSubmit, 
     control,
+    watch,
+    setValue,
     formState: { errors } 
   } = useForm<FormValues>({
     defaultValues: {
       name: '',
-      category: 'Custom',
+      category: '',
       description: '',
       steps: [{ title: '', instructions: '', mediaRequired: false }]
     }
@@ -121,12 +115,12 @@ const NewWorkflowPage: React.FC = () => {
                   })}
                   error={errors.name?.message}
                 />
-                
-                <Select
+                  <CategorySelect
                   label="Category"
-                  options={categoryOptions}
-                  {...register('category', { required: 'Category is required' })}
+                  value={watch('category')}
+                  onChange={(value) => setValue('category', value)}
                   error={errors.category?.message}
+                  required
                 />
               </div>
               

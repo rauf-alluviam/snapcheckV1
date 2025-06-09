@@ -22,9 +22,27 @@ router.get('/', isAdmin, async (req, res) => {
       };
     });
     
-    res.json(transformedUsers);
-  } catch (err) {
+    res.json(transformedUsers);  } catch (err) {
     console.error('Error fetching users:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET api/users/approvers
+// @desc    Get all approvers in the organization (for inspection creation)
+// @access  Private (All authenticated users)
+router.get('/approvers', auth, async (req, res) => {
+  try {
+    const approvers = await User.find({ 
+      organizationId: req.user.organizationId,
+      role: 'approver'
+    })
+      .select('_id name email role')
+      .sort({ name: 1 });
+    
+    res.json(approvers);
+  } catch (err) {
+    console.error('Error fetching approvers:', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 });

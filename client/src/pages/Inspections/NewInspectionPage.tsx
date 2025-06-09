@@ -58,12 +58,11 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
 
   // Fetch available workflows and approvers
   useEffect(() => {
-    const fetchData = async () => {
-      try {
+    const fetchData = async () => {      try {
         setLoading(true);
         const [workflowsResponse, approversResponse] = await Promise.all([
           api.get('/api/workflows'),
-          api.get('/api/users', { params: { role: 'approver' } })
+          api.get('/api/users/approvers')
         ]);
 
         if (Array.isArray(workflowsResponse.data)) {

@@ -34,7 +34,7 @@ app.use(express.urlencoded({ extended: true }));
 // Configure CORS for both development and production
 app.use(cors({
   origin: [
-    'http://localhost:3001',               // Local development
+    'http://localhost:3000',               // Local development
     'http://localhost:5173',               // Vite dev server
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',
@@ -72,10 +72,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://exim_test:5pzZt0QlPJoj4iA6@eximtest.xovvhdm.mongodb.net/exim', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
+mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('MongoDB connected');
     

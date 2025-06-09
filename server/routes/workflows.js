@@ -10,9 +10,21 @@ const router = express.Router();
 router.get('/', auth, async (req, res) => {
   try {
     const workflows = await Workflow.find({ organizationId: req.user.organizationId });
-    res.json(workflows);
-  } catch (err) {
+    res.json(workflows);  } catch (err) {
     console.error('Error fetching workflows:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET api/workflows/categories
+// @desc    Get all unique workflow categories in the organization
+// @access  Private
+router.get('/categories', auth, async (req, res) => {
+  try {
+    const uniqueCategories = await Workflow.distinct('category', { organizationId: req.user.organizationId });
+    res.json(uniqueCategories);
+  } catch (err) {
+    console.error('Error fetching workflow categories:', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -167,21 +179,7 @@ router.post('/duplicate/:id', isAdmin, async (req, res) => {
     if (err.kind === 'ObjectId') {
       return res.status(404).json({ message: 'Workflow not found' });
     }
-    
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   GET api/workflows/categories
-// @desc    Get all unique workflow categories in the organization
-// @access  Private
-router.get('/categories', auth, async (req, res) => {
-  try {
-    const uniqueCategories = await Workflow.distinct('category', { organizationId: req.user.organizationId });
-    res.json(uniqueCategories);
-  } catch (err) {
-    console.error('Error fetching workflow categories:', err.message);
-    res.status(500).json({ message: 'Server error' });
+      res.status(500).json({ message: 'Server error' });
   }
 });
 

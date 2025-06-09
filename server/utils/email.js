@@ -1,34 +1,31 @@
-import AWS from 'aws-sdk';
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 
-// Don't configure AWS immediately - instead, create a function to configure it when needed
-const configureAWS = () => {
-  AWS.config.update({
+// Create SES client with configuration
+const createSESClient = () => {
+  return new SESClient({
     region: process.env.AWS_REGION || 'ap-south-1',
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  });
-  return new AWS.SES({ 
-    apiVersion: '2010-12-01',
-    region: process.env.AWS_REGION || 'ap-south-1' // Explicitly set region here too
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    },
   });
 };
 
 // We'll initialize SES when first needed
-let ses = null;
+let sesClient = null;
 
 /**
- * Send an email using AWS SES
+ * Send an email using AWS SES v3
  * @param {string} to - Recipient email address
  * @param {string} subject - Email subject
  * @param {string} htmlBody - Email body in HTML format
  * @param {string} textBody - Email body in plain text format
- * @returns {Promise} - Result from SES.sendEmail
+ * @returns {Promise} - Result from SES SendEmailCommand
  */
 export const sendEmail = async (to, subject, htmlBody, textBody) => {
-  // Initialize SES if not already done
-  if (!ses) {
-    ses = configureAWS();
-    // console.log("AWS SES configured with region:", process.env.AWS_REGION || 'ap-south-1');
+  // Initialize SES client if not already done
+  if (!sesClient) {
+    sesClient = createSESClient();
   }
   
   const params = {
@@ -55,7 +52,8 @@ export const sendEmail = async (to, subject, htmlBody, textBody) => {
   };
 
   try {
-    const result = await ses.sendEmail(params).promise();
+    const command = new SendEmailCommand(params);
+    const result = await sesClient.send(command);
     console.log('Email sent successfully:', result.MessageId);
     return result;
   } catch (error) {
