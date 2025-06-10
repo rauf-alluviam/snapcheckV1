@@ -9,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { FilterParams, Inspection } from '../../types';
 import { CalendarIcon, Filter, Plus, Search, AlertCircle, ChevronDown, ChevronRight, Folder } from 'lucide-react';
 import api from '../../utils/api';
+import { formatDateShort } from '../../utils/dateUtils';
 
 // Mock data for inspections
 const mockInspections: Inspection[] = [
@@ -151,9 +152,7 @@ const InspectionsPage: React.FC = () => {
   const isAdmin = user?.role === 'admin';
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterParams>({organizationId: '', role: ''});
-  const [searchQuery, setSearchQuery] = useState('');
-  const [inspections, setInspections] = useState<Inspection[]>(mockInspections);
-  const [pendingBatchesCount, setPendingBatchesCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');  const [inspections, setInspections] = useState<Inspection[]>(mockInspections);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -178,21 +177,9 @@ const InspectionsPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        
-        // Fetch inspections
+          // Fetch inspections
         const inspResponse = await api.get('/api/inspections');
         setInspections(inspResponse.data);
-        
-        // Only fetch batch counts for admins and approvers
-        if (user?.role === 'admin' || user?.role === 'approver') {
-          try {
-            const batchResponse = await api.get('/api/inspections/batch');
-            setPendingBatchesCount(batchResponse.data.length);
-          } catch (err) {
-            console.error('Error fetching batch counts:', err);
-            // Non-critical error, don't show to user
-          }
-        }
       } catch (err) {
         console.error('Error fetching inspections:', err);
         setError('Failed to load inspections. Please try again.');
@@ -402,21 +389,7 @@ const InspectionsPage: React.FC = () => {
   return (
     <div className="space-y-6">      
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-        <h1 className="text-2xl font-semibold text-gray-900">Inspections</h1>
-        <div className="flex space-x-3">
-          {(user?.role === 'admin' || user?.role === 'approver') && pendingBatchesCount > 0 && (
-            <Link to="/batch-approvals">
-              <Button 
-                variant="warning" 
-                className="flex items-center"
-              >
-                <span>Pending Batch Approvals</span>
-                <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                  {pendingBatchesCount}
-                </span>
-              </Button>
-            </Link>
-          )}
+        <h1 className="text-2xl font-semibold text-gray-900">Inspections</h1>        <div className="flex space-x-3">
           <Button
             variant="outline"
             leftIcon={<Filter size={16} />}
@@ -731,8 +704,7 @@ const InspectionsPage: React.FC = () => {
                                 </th>
                               </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                              {workflowInspections.map((inspection) => (
+                            <tbody className="bg-white divide-y divide-gray-200">                              {workflowInspections.map((inspection) => (
                                 <tr key={inspection._id} className="hover:bg-gray-50">
                                   <td className="px-6 py-4 whitespace-nowrap">
                                     <Link to={`/inspections/${inspection._id}`} className="text-sm font-medium text-gray-900 hover:text-blue-600">
@@ -744,14 +716,14 @@ const InspectionsPage: React.FC = () => {
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap">
                                     <span className="text-sm text-gray-600">
-                                      {new Date(inspection.inspectionDate).toLocaleDateString()}
+                                      {formatDateShort(inspection.inspectionDate)}
                                     </span>
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap">
                                     <span className="text-sm text-gray-600">{inspection.assignedToName}</span>
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap">
-                                    <Badge 
+                                    <Badge
                                       variant={
                                         inspection.status === 'approved' 
                                           ? 'success' 
@@ -831,20 +803,19 @@ const InspectionsPage: React.FC = () => {
                               <Link to={`/inspections/${inspection._id}`} className="text-sm font-medium text-gray-900 hover:text-blue-600">
                                 {inspection.inspectionType}
                               </Link>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            </td>                            <td className="px-6 py-4 whitespace-nowrap">
                               <span className="text-sm text-gray-600">{inspection.category}</span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className="text-sm text-gray-600">
-                                {new Date(inspection.inspectionDate).toLocaleDateString()}
+                                {formatDateShort(inspection.inspectionDate)}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className="text-sm text-gray-600">{inspection.assignedToName}</span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <Badge 
+                              <Badge
                                 variant={
                                   inspection.status === 'approved' 
                                     ? 'success' 
@@ -968,10 +939,9 @@ const InspectionsPage: React.FC = () => {
                                         </p>
                                       </div>
                                     </div>
-                                    
-                                    <div className="mt-4 flex items-center text-sm text-gray-500">
+                                      <div className="mt-4 flex items-center text-sm text-gray-500">
                                       <CalendarIcon className="h-4 w-4 mr-1" />
-                                      <span>{inspection.inspectionDate}</span>
+                                      <span>{formatDateShort(inspection.inspectionDate)}</span>
                                     </div>
                                   </div>
                                 </CardContent>
@@ -1047,10 +1017,9 @@ const InspectionsPage: React.FC = () => {
                                 </p>
                               </div>
                             </div>
-                            
-                            <div className="mt-4 flex items-center text-sm text-gray-500">
+                              <div className="mt-4 flex items-center text-sm text-gray-500">
                               <CalendarIcon className="h-4 w-4 mr-1" />
-                              <span>{inspection.inspectionDate}</span>
+                              <span>{formatDateShort(inspection.inspectionDate)}</span>
                             </div>
                           </div>
                         </CardContent>

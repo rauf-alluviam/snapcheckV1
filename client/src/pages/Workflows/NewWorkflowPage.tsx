@@ -8,6 +8,10 @@ import CategorySelect from '../../components/ui/CategorySelect';
 import { useAuth } from '../../contexts/AuthContext';
 import { Plus, Trash2, MoveUp, MoveDown, Info } from 'lucide-react';
 import api from '../../utils/api';
+import { workflowSchemas } from '../../validation/schemas';
+import { useValidation } from '../../validation/hooks';
+import { handleApiValidationErrors, getErrorMessage } from '../../validation/utils';
+import ValidatedInput from '../../components/ui/ValidatedInput';
 
 interface Step {
   title: string;
@@ -27,16 +31,20 @@ const NewWorkflowPage: React.FC = () => {
   const { state } = useAuth();
   const { user } = state;
   const isAdmin = user?.role === 'admin';
-  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-    const { 
+  
+  // Use validation system
+  const validation = useValidation(workflowSchemas.create);
+  
+  const { 
     register, 
     handleSubmit, 
     control,
     watch,
     setValue,
-    formState: { errors } 
+    formState: { errors },
+    setError: setFieldError
   } = useForm<FormValues>({
     defaultValues: {
       name: '',
@@ -50,8 +58,13 @@ const NewWorkflowPage: React.FC = () => {
     control,
     name: 'steps'
   });
-  
   const onSubmit = async (data: FormValues) => {
+    // Validate with our schema first
+    const validationResult = validation.validate(data);
+    if (!validationResult.success) {
+      return;
+    }
+    
     setIsSubmitting(true);
     setError(null);
     
@@ -64,7 +77,16 @@ const NewWorkflowPage: React.FC = () => {
       navigate(`/workflows/${response.data._id}`);
     } catch (err: any) {
       console.error('Error creating workflow:', err);
-      setError(err.response?.data?.message || 'Failed to create workflow. Please try again.');
+      
+      // Handle validation errors from API
+      const hasValidationErrors = handleApiValidationErrors(err, (field: string, message: string) => {
+        validation.setFieldError(field, message);
+      });
+      
+      if (!hasValidationErrors) {
+        const errorMessage = getErrorMessage(err);
+        setError(errorMessage);
+      }
       setIsSubmitting(false);
     }
   };
@@ -94,17 +116,25 @@ const NewWorkflowPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
         <h1 className="text-2xl font-semibold text-gray-900">Create New Workflow</h1>
-      </div>
-      
-      <form onSubmit={handleSubmit(onSubmit)}>
+      </div>      <form onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="flex">
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <Card>
             <CardHeader>
               <CardTitle>Workflow Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
+                <ValidatedInput
                   label="Workflow Name"
                   {...register('name', { 
                     required: 'Name is required',
@@ -114,6 +144,8 @@ const NewWorkflowPage: React.FC = () => {
                     }
                   })}
                   error={errors.name?.message}
+                  validationErrors={validation.errors.name ? [validation.errors.name] : []}
+                  showValidation={!validation.errors.name}
                 />
                   <CategorySelect
                   label="Category"

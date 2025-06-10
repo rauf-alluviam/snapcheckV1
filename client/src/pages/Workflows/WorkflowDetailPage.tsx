@@ -205,21 +205,18 @@ const WorkflowDetailPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
-        {/* Auto-Approval Settings */}
-      <AutoApprovalSettings
+        {/* Auto-Approval Settings */}      <AutoApprovalSettings
         workflowId={workflow._id}
         initialSettings={{
           isRoutineInspection: workflow.isRoutineInspection || false,
           autoApprovalEnabled: workflow.autoApprovalEnabled || false,
-          bulkApprovalEnabled: workflow.bulkApprovalEnabled || false,
           autoApprovalRules: workflow.autoApprovalRules || {
             timeRangeStart: '00:00',
             timeRangeEnd: '23:59',
             valueField: 'responseText',
             requirePhoto: true,
             frequencyPeriod: 'day'
-          },
-          notificationFrequency: workflow.notificationFrequency || 'daily'
+          }
         }}
         onSettingsUpdate={() => {
           // Refresh workflow data when settings are updated

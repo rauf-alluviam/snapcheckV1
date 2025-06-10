@@ -17,6 +17,7 @@ import {   Chart as ChartJS,
 import { AlertTriangle, CheckCircle, Clock, ClipboardList } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
+import { formatDateShort } from '../../utils/dateUtils';
 
 // Register ChartJS components
 ChartJS.register(
@@ -282,9 +283,8 @@ const DashboardPage: React.FC = () => {  useAuth(); // Keep the context connecti
                 {stats.recentActivity.map((activity, index) => (
                   <div key={index} className="flex items-center justify-between py-2">
                     <div>
-                      <p className="font-medium text-gray-900">{activity.workflowName}</p>
-                      <p className="text-sm text-gray-500">
-                        by {activity.assignedToName} • {new Date(activity.updatedAt).toLocaleDateString()}
+                      <p className="font-medium text-gray-900">{activity.workflowName}</p>                      <p className="text-sm text-gray-500">
+                        by {activity.assignedToName} • {formatDateShort(activity.updatedAt)}
                       </p>
                     </div>
                     <Badge

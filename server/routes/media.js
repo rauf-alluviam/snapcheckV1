@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 
 import { fileURLToPath } from 'url';
 import { auth } from '../middleware/auth.js';
+import { validateFileUpload } from '../validation/middleware.js';
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
@@ -58,7 +59,7 @@ const upload = multer({
 // @route   POST api/media/upload
 // @desc    Upload media files
 // @access  Private
-router.post('/upload', upload.array('media', 5), (req, res) => {
+router.post('/upload', upload.array('media', 5), validateFileUpload, (req, res) => {
   try {
     const files = req.files;
 

@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Calendar, FileText, ChevronDown, ChevronUp, AlertCircle, Loader } from 'lucide-react';
 import api from '../../utils/api';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import UserWiseDataView from '../../components/Analytics/UserWiseDataView';
 import { 
   Chart as ChartJS, 
   CategoryScale, 
@@ -34,10 +35,11 @@ ChartJS.register(
   Legend
 );
 
-const AnalyticsPage: React.FC = () => {
-  const { state } = useAuth();
+const AnalyticsPage: React.FC = () => {  const { state } = useAuth();
   const { user } = state;
-  const isAdmin = user?.role === 'admin';
+  const isAuthorized = user?.role === 'admin' || user?.role === 'approver';
+  
+  const [activeTab, setActiveTab] = useState<'overview' | 'user-wise'>('overview');
   
   const [dateRange, setDateRange] = useState({
     startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
@@ -48,10 +50,54 @@ const AnalyticsPage: React.FC = () => {
     category: 'all',
     inspector: 'all'
   });
-  
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+    // Dynamic filter options
+  const [filterCategories, setFilterCategories] = useState<Array<{ value: string; label: string }>>([]);
+  const [filterInspectors, setFilterInspectors] = useState<Array<{ value: string; label: string }>>([]);
+
+  // Load filter options
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      try {
+        const [categoriesRes, inspectorsRes] = await Promise.all([
+          api.get('/api/inspections/categories'),
+          api.get('/api/users?role=inspector')
+        ]);
+
+        setFilterCategories([
+          { value: 'all', label: 'All Categories' },
+          ...categoriesRes.data.map((cat: string) => ({ 
+            value: cat.toLowerCase(), 
+            label: cat.charAt(0).toUpperCase() + cat.slice(1) 
+          }))
+        ]);
+
+        setFilterInspectors([
+          { value: 'all', label: 'All Inspectors' },
+          ...inspectorsRes.data.map((inspector: any) => ({ 
+            value: inspector._id, 
+            label: inspector.name 
+          }))
+        ]);
+      } catch (err) {
+        console.error('Error fetching filter options:', err);
+        // Fallback to basic options if API fails
+        setFilterCategories([
+          { value: 'all', label: 'All Categories' },
+          { value: 'cargo', label: 'Cargo' },
+          { value: 'facility', label: 'Facility' },
+          { value: 'vehicle', label: 'Vehicle' }
+        ]);
+        setFilterInspectors([
+          { value: 'all', label: 'All Inspectors' }
+        ]);
+      }
+    };
+
+    fetchFilterOptions();
+  }, []);
 
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({
     'inspections-over-time': true,
@@ -67,27 +113,28 @@ const AnalyticsPage: React.FC = () => {
       [cardId]: !prev[cardId]
     }));
   };
-    // Generate chart data from analytics
+
+  // Generate chart data from analytics
   const inspectionTimeData: ChartData<'line'> = {
-    labels: analyticsData?.inspectionsOverTime.map(d => d.month) || [],
+    labels: analyticsData?.inspectionsOverTime.map((d: any) => d.month) || [],
     datasets: [
       {
         label: 'Completed',
-        data: analyticsData?.inspectionsOverTime.map(d => d.completed) || [],
+        data: analyticsData?.inspectionsOverTime.map((d: any) => d.completed) || [],
         borderColor: '#2563EB',
         backgroundColor: 'rgba(37, 99, 235, 0.1)',
         tension: 0.2,
       },
       {
         label: 'Rejected',
-        data: analyticsData?.inspectionsOverTime.map(d => d.rejected) || [],
+        data: analyticsData?.inspectionsOverTime.map((d: any) => d.rejected) || [],
         borderColor: '#EF4444',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
         tension: 0.2,
       },
       {
         label: 'Pending',
-        data: analyticsData?.inspectionsOverTime.map(d => d.pending) || [],
+        data: analyticsData?.inspectionsOverTime.map((d: any) => d.pending) || [],
         borderColor: '#F59E0B',
         backgroundColor: 'rgba(245, 158, 11, 0.1)',
         tension: 0.2,
@@ -111,7 +158,6 @@ const AnalyticsPage: React.FC = () => {
       }
     ],
   };
-
   const statusData: ChartData<'doughnut'> = {
     labels: ['Pending', 'Approved', 'Rejected'],
     datasets: [
@@ -137,62 +183,46 @@ const AnalyticsPage: React.FC = () => {
   };
 
   const inspectorData: ChartData<'bar'> = {
-    labels: analyticsData?.inspectorPerformance.map(i => i.name) || [],
+    labels: analyticsData?.inspectorPerformance.map((i: any) => i.name) || ['No Data'],
     datasets: [
       {
         label: 'Inspections Completed',
-        data: analyticsData?.inspectorPerformance.map(i => i.completed) || [],
+        data: analyticsData?.inspectorPerformance.map((i: any) => i.completed) || [0],
         backgroundColor: 'rgba(37, 99, 235, 0.7)',
       },
       {
         label: 'Approval Rate (%)',
-        data: analyticsData?.inspectorPerformance.map(i => i.approvalRate) || [],
+        data: analyticsData?.inspectorPerformance.map((i: any) => i.approvalRate) || [0],
         backgroundColor: 'rgba(16, 185, 129, 0.7)',
       }
     ],
   };
 
-  const categoryCompletionTimes = Object.keys(analyticsData?.completionTimes || {});
   const completionTimeData: ChartData<'bar'> = {
-    labels: categoryCompletionTimes,
+    labels: Object.keys(analyticsData?.avgCompletionTime || { 'No Data': 0 }),
     datasets: [
       {
-        label: 'Average Completion Time (minutes)',
-        data: categoryCompletionTimes.map(cat => analyticsData?.completionTimes[cat] || 0),
-        backgroundColor: 'rgba(37, 99, 235, 0.7)',
+        label: 'Average Completion Time (hours)',
+        data: Object.values(analyticsData?.avgCompletionTime || { 'No Data': 0 }),
+        backgroundColor: 'rgba(245, 158, 11, 0.7)',
       }
     ],
   };
-  
-  const chartOptions: ChartOptions<'line'> = {
+
+  const lineOptions: ChartOptions<'line'> = {
     responsive: true,
     plugins: {
       legend: {
         position: 'top' as const,
       },
-      tooltip: {
-        mode: 'index',
-        intersect: false,
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-      },
     },
   };
-  
+
   const barOptions: ChartOptions<'bar'> = {
     responsive: true,
     plugins: {
       legend: {
-        display: true,
         position: 'top' as const,
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
       },
     },
   };
@@ -204,27 +234,35 @@ const AnalyticsPage: React.FC = () => {
         position: 'right' as const,
       },
     },
-  };
-
-  // Add useEffect to fetch analytics data
+  };  // Add useEffect to fetch analytics data
   useEffect(() => {
     const fetchAnalyticsData = async () => {
       try {
         setLoading(true);
         setError(null);
         
-        // Fetch analytics data using the API service
-        const response = await api.post('/api/reports/analytics', {
-          startDate: dateRange.startDate,
-          endDate: dateRange.endDate,
-          ...filters
-        });
+        // Fetch dashboard data which contains analytics information
+        const response = await api.get('/api/dashboard/stats');
         
-        setAnalyticsData(response.data);
+        // Transform dashboard data to match analytics expected format
+        const dashboardData = response.data;
+        const transformedData = {
+          inspectionsOverTime: dashboardData.monthlyData.map((d: any) => ({
+            month: d.month,
+            completed: d.completed,
+            rejected: d.rejected,
+            pending: 0 // Not available in dashboard API, but charts can handle it
+          })),
+          categoryDistribution: dashboardData.categoryStats || {},
+          statusDistribution: dashboardData.summaryStats || { pending: 0, approved: 0, rejected: 0 },
+          inspectorPerformance: [], // Would need separate API call for detailed inspector performance
+          avgCompletionTime: {} // Would need separate API call for completion time data
+        };
+        
+        setAnalyticsData(transformedData);
       } catch (err: any) {
         console.error('Error fetching analytics:', err);
         setError(err.response?.data?.message || 'Failed to load analytics data. Please try again.');
-        // Keep using mock data when there's an error
       } finally {
         setLoading(false);
       }
@@ -233,7 +271,7 @@ const AnalyticsPage: React.FC = () => {
     fetchAnalyticsData();
   }, [dateRange.startDate, dateRange.endDate, filters.category, filters.inspector]);
   
-  if (!isAdmin) {
+  if (!isAuthorized) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <div className="text-center">
@@ -241,10 +279,9 @@ const AnalyticsPage: React.FC = () => {
             <div className="rounded-full bg-red-100 p-6">
               <FileText className="h-12 w-12 text-red-600" />
             </div>
-          </div>
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
+          </div>          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
           <p className="text-gray-600 max-w-md mb-6">
-            You don't have permission to access analytics. This feature is only available to administrators.
+            You don't have permission to access analytics. This feature is only available to administrators and approvers.
           </p>
           <a href="/dashboard">
             <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
@@ -261,164 +298,190 @@ const AnalyticsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
         <h1 className="text-2xl font-semibold text-gray-900">Analytics Dashboard</h1>
       </div>
-      
-      <Card>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="col-span-1 md:col-span-2">
-              <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                <Calendar className="h-4 w-4 mr-1 text-gray-500" />
-                Date Range
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  type="date"
-                  value={dateRange.startDate}
-                  onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
-                />
-                <Input
-                  type="date"
-                  value={dateRange.endDate}
-                  onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
-                />
-              </div>
-            </div>
-            
-            <div>
-              <Select
-                label="Category"
-                options={[
-                  { value: 'all', label: 'All Categories' },
-                  { value: 'cargo', label: 'Cargo' },
-                  { value: 'facility', label: 'Facility' },
-                  { value: 'vehicle', label: 'Vehicle' }
-                ]}
-                value={filters.category}
-                onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-              />
-            </div>
-            
-            <div>
-              <Select
-                label="Inspector"
-                options={[
-                  { value: 'all', label: 'All Inspectors' },
-                  { value: 'john', label: 'John Doe' },
-                  { value: 'michael', label: 'Michael Brown' },
-                  { value: 'sarah', label: 'Sarah Johnson' },
-                  { value: 'david', label: 'David Wilson' }
-                ]}
-                value={filters.inspector}
-                onChange={(e) => setFilters({ ...filters, inspector: e.target.value })}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* Loading and Error States */}
-      {loading ? (
-        <div className="flex justify-center items-center py-12">
-          <div className="flex flex-col items-center">
-            <Loader className="h-12 w-12 text-blue-500 animate-spin mb-4" />
-            <p className="text-gray-600">Loading analytics data...</p>
-          </div>
-        </div>
-      ) : error ? (
-        <div className="flex justify-center items-center py-12">
-          <div className="flex flex-col items-center">
-            <div className="rounded-full bg-red-100 p-3 mb-4">
-              <AlertCircle className="h-8 w-8 text-red-600" />
-            </div>
-            <p className="text-red-600">{error}</p>
-          </div>
-        </div>
-      ) : (
+
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'overview'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('user-wise')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'user-wise'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            User-wise Data
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
         <>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between cursor-pointer" 
-            // onClick={() => toggleCardExpansion('inspections-over-time')}
-            >
-              <CardTitle>Inspections Over Time</CardTitle>
-              <button className="text-gray-400 hover:text-gray-500">
-                {expandedCards['inspections-over-time'] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-              </button>
-            </CardHeader>
-            {expandedCards['inspections-over-time'] && (
-              <CardContent>
-                <Line data={inspectionTimeData} options={chartOptions} />
-              </CardContent>
-            )}
-          </Card>
-        
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between cursor-pointer" 
-              // onClick={() => toggleCardExpansion('inspections-by-category')}
-              >
-                <CardTitle>Inspections by Category</CardTitle>
-                <button className="text-gray-400 hover:text-gray-500">
-                  {expandedCards['inspections-by-category'] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                </button>
-              </CardHeader>
-              {expandedCards['inspections-by-category'] && (
-                <CardContent>
-                  <Bar data={categoryData} options={barOptions} />
-                </CardContent>
-              )}
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between cursor-pointer" 
-              // onClick={() => toggleCardExpansion('status-distribution')}
-              >
-                <CardTitle>Status Distribution</CardTitle>
-                <button className="text-gray-400 hover:text-gray-500">
-                  {expandedCards['status-distribution'] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                </button>
-              </CardHeader>
-              {expandedCards['status-distribution'] && (
-                <CardContent className="flex justify-center">
-                  <div style={{ maxWidth: '300px' }}>
-                    <Doughnut data={statusData} options={doughnutOptions} />
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="col-span-1 md:col-span-2">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <Calendar className="h-4 w-4 mr-1 text-gray-500" />
+                    Date Range
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      type="date"
+                      value={dateRange.startDate}
+                      onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
+                    />
+                    <Input
+                      type="date"
+                      value={dateRange.endDate}
+                      onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
+                    />
                   </div>
-                </CardContent>
-              )}
-            </Card>
-          </div>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between cursor-pointer" 
-            // onClick={() => toggleCardExpansion('inspector-performance')}
-            >
-              <CardTitle>Inspector Performance</CardTitle>
-              <button className="text-gray-400 hover:text-gray-500">
-                {expandedCards['inspector-performance'] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-              </button>
-            </CardHeader>
-            {expandedCards['inspector-performance'] && (
-              <CardContent>
-                <Bar data={inspectorData} options={barOptions} />
-              </CardContent>
-            )}
+                </div>
+                  <div>
+                  <Select
+                    label="Category"
+                    options={filterCategories}
+                    value={filters.category}
+                    onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+                  />
+                </div>
+                
+                <div>
+                  <Select
+                    label="Inspector"
+                    options={filterInspectors}
+                    value={filters.inspector}
+                    onChange={(e) => setFilters({ ...filters, inspector: e.target.value })}
+                  />
+                </div>
+              </div>
+            </CardContent>
           </Card>
           
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between cursor-pointer" 
-            // onClick={() => toggleCardExpansion('completion-time')}
-            >
-              <CardTitle>Average Completion Time by Category</CardTitle>
-              <button className="text-gray-400 hover:text-gray-500">
-                {expandedCards['completion-time'] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+          {/* Loading and Error States */}
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="flex flex-col items-center">
+                <Loader className="h-8 w-8 animate-spin text-blue-600 mb-4" />
+                <p className="text-gray-600">Loading analytics data...</p>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="text-center py-8">
+              <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
+              <p className="text-red-600 mb-4">{error}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Try Again
               </button>
-            </CardHeader>
-            {expandedCards['completion-time'] && (
-              <CardContent>
-                <Bar data={completionTimeData} options={barOptions} />
-              </CardContent>
-            )}
-          </Card>
+            </div>
+          ) : (
+            <>              <Card>
+                <CardHeader className="flex flex-row items-center justify-between cursor-pointer">
+                  <CardTitle>Inspections Over Time</CardTitle>
+                  <button 
+                    className="text-gray-400 hover:text-gray-500"
+                    onClick={() => toggleCardExpansion('inspections-over-time')}
+                  >
+                    {expandedCards['inspections-over-time'] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </button>
+                </CardHeader>
+                {expandedCards['inspections-over-time'] && (
+                  <CardContent>
+                    <Line data={inspectionTimeData} options={lineOptions} />
+                  </CardContent>
+                )}
+              </Card>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between cursor-pointer">
+                    <CardTitle>Inspections by Category</CardTitle>
+                    <button 
+                      className="text-gray-400 hover:text-gray-500"
+                      onClick={() => toggleCardExpansion('inspections-by-category')}
+                    >
+                      {expandedCards['inspections-by-category'] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    </button>
+                  </CardHeader>
+                  {expandedCards['inspections-by-category'] && (
+                    <CardContent>
+                      <Bar data={categoryData} options={barOptions} />
+                    </CardContent>
+                  )}
+                </Card>
+                  <Card>
+                  <CardHeader className="flex flex-row items-center justify-between cursor-pointer">
+                    <CardTitle>Status Distribution</CardTitle>
+                    <button 
+                      className="text-gray-400 hover:text-gray-500"
+                      onClick={() => toggleCardExpansion('status-distribution')}
+                    >
+                      {expandedCards['status-distribution'] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    </button>
+                  </CardHeader>
+                  {expandedCards['status-distribution'] && (
+                    <CardContent className="flex justify-center">
+                      <div style={{ maxWidth: '300px' }}>
+                        <Doughnut data={statusData} options={doughnutOptions} />
+                      </div>
+                    </CardContent>
+                  )}
+                </Card>
+              </div>
+                <Card>
+                <CardHeader className="flex flex-row items-center justify-between cursor-pointer">
+                  <CardTitle>Inspector Performance</CardTitle>
+                  <button 
+                    className="text-gray-400 hover:text-gray-500"
+                    onClick={() => toggleCardExpansion('inspector-performance')}
+                  >
+                    {expandedCards['inspector-performance'] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </button>
+                </CardHeader>
+                {expandedCards['inspector-performance'] && (
+                  <CardContent>
+                    <Bar data={inspectorData} options={barOptions} />
+                  </CardContent>
+                )}
+              </Card>
+                <Card>
+                <CardHeader className="flex flex-row items-center justify-between cursor-pointer">
+                  <CardTitle>Average Completion Time by Category</CardTitle>
+                  <button 
+                    className="text-gray-400 hover:text-gray-500"
+                    onClick={() => toggleCardExpansion('completion-time')}
+                  >
+                    {expandedCards['completion-time'] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </button>
+                </CardHeader>
+                {expandedCards['completion-time'] && (
+                  <CardContent>
+                    <Bar data={completionTimeData} options={barOptions} />
+                  </CardContent>
+                )}
+              </Card>
+            </>
+          )}
         </>
+      )}
+
+      {/* User-wise Data Tab */}
+      {activeTab === 'user-wise' && (
+        <UserWiseDataView />
       )}
     </div>
   );

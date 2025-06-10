@@ -66,23 +66,19 @@ const Sidebar: React.FC = () => {
         <nav className="flex-1 px-2 space-y-1">
           {/* Common navigation items for all authenticated users */}
           <NavItem to="/dashboard" icon={<LayoutDashboard size={20} />} label="Dashboard" />
-          <NavItem to="/inspections" icon={<ClipboardList size={20} />} label="Inspections" />
-            {/* Admin-only navigation items */}
+          <NavItem to="/inspections" icon={<ClipboardList size={20} />} label="Inspections" />          {/* Admin-only navigation items */}
           {isAdmin && (
             <>
               <NavItem to="/workflows" icon={<Workflow size={20} />} label="Workflows" />
               <NavItem to="/reports" icon={<FileText size={20} />} label="Reports" />
               <NavItem to="/analytics" icon={<BarChart4 size={20} />} label="Analytics" />
-              <NavItem to="/batch-approvals" icon={<ShieldCheck size={20} />} label="Batch Approvals" />
               <NavItem to="/users" icon={<Users size={20} />} label="Users Management" />
               <NavItem to="/settings" icon={<Settings size={20} />} label="System Settings" />
             </>
-          )}
-            {/* Approver-specific navigation items */}
+          )}          {/* Approver-specific navigation items */}
           {isApprover && (
             <>
               <NavItem to="/approvals" icon={<UserCheck size={20} />} label="Approvals" />
-              <NavItem to="/batch-approvals" icon={<ShieldCheck size={20} />} label="Batch Approvals" />
               <NavItem to="/reports" icon={<FileText size={20} />} label="Reports" />
             </>
           )}

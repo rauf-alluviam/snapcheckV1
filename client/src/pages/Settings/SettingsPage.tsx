@@ -3,7 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Ca
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useAuth } from '../../contexts/AuthContext';
-import { Save, Building, User, Mail, Phone, CheckCircle, Settings as SettingsIcon, Shield, Info } from 'lucide-react';
+import { Save, Building, User, Mail, Phone, CheckCircle, Settings as SettingsIcon, Info } from 'lucide-react';
+import { settingsSchemas } from '../../validation/schemas';
+import { useValidation } from '../../validation/hooks';
 
 const SettingsPage: React.FC = () => {
   const { state } = useAuth();
@@ -25,69 +27,23 @@ const SettingsPage: React.FC = () => {
     address: '123 Main St, Suite 100, Anytown, USA'
   });
   
-  const [profileFormErrors, setProfileFormErrors] = useState<Record<string, string>>({});
-  const [orgFormErrors, setOrgFormErrors] = useState<Record<string, string>>({});
+  // Use validation hooks
+  const profileValidation = useValidation(settingsSchemas.profile);
+  const orgValidation = useValidation(settingsSchemas.organization);
   
   const [isProfileFormSubmitting, setIsProfileFormSubmitting] = useState(false);
   const [isOrgFormSubmitting, setIsOrgFormSubmitting] = useState(false);
   
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [orgSuccess, setOrgSuccess] = useState(false);
-  
-  const validateProfileForm = () => {
-    const errors: Record<string, string> = {};
-    
-    if (!profileForm.name.trim()) {
-      errors.name = 'Name is required';
-    }
-    
-    if (!profileForm.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(profileForm.email)) {
-      errors.email = 'Invalid email address';
-    }
-    
-    if (profileForm.newPassword) {
-      if (!profileForm.currentPassword) {
-        errors.currentPassword = 'Current password is required to set a new password';
-      }
-      
-      if (profileForm.newPassword.length < 6) {
-        errors.newPassword = 'Password must be at least 6 characters';
-      }
-      
-      if (profileForm.newPassword !== profileForm.confirmPassword) {
-        errors.confirmPassword = 'Passwords do not match';
-      }
-    }
-    
-    setProfileFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    const validateProfileForm = () => {
+    const result = profileValidation.validate(profileForm);
+    return result.success;
   };
   
   const validateOrgForm = () => {
-    const errors: Record<string, string> = {};
-    
-    if (!orgForm.name.trim()) {
-      errors.name = 'Organization name is required';
-    }
-    
-    if (!orgForm.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(orgForm.email)) {
-      errors.email = 'Invalid email address';
-    }
-    
-    if (!orgForm.phone.trim()) {
-      errors.phone = 'Phone number is required';
-    }
-    
-    if (!orgForm.address.trim()) {
-      errors.address = 'Address is required';
-    }
-    
-    setOrgFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    const result = orgValidation.validate(orgForm);
+    return result.success;
   };
   
   const handleProfileFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -191,7 +147,7 @@ const SettingsPage: React.FC = () => {
                     name="name"
                     value={profileForm.name}
                     onChange={handleProfileFormChange}
-                    error={profileFormErrors.name}
+                    error={profileValidation.errors.name}
                     leftAddon={<User className="ml-3 h-5 w-5 text-gray-400" />}
                   />
                   
@@ -201,7 +157,7 @@ const SettingsPage: React.FC = () => {
                     type="email"
                     value={profileForm.email}
                     onChange={handleProfileFormChange}
-                    error={profileFormErrors.email}
+                    error={profileValidation.errors.email}
                     leftAddon={<Mail className="ml-3 h-5 w-5 text-gray-400" />}
                   />
                 </div>
@@ -236,7 +192,7 @@ const SettingsPage: React.FC = () => {
                       name="name"
                       value={orgForm.name}
                       onChange={handleOrgFormChange}
-                      error={orgFormErrors.name}
+                      error={orgValidation.errors.name}
                       leftAddon={<Building className="ml-3 h-5 w-5 text-gray-400" />}
                     />
                     
@@ -246,7 +202,7 @@ const SettingsPage: React.FC = () => {
                       type="email"
                       value={orgForm.email}
                       onChange={handleOrgFormChange}
-                      error={orgFormErrors.email}
+                      error={orgValidation.errors.email}
                       leftAddon={<Mail className="ml-3 h-5 w-5 text-gray-400" />}
                     />
                     
@@ -255,7 +211,7 @@ const SettingsPage: React.FC = () => {
                       name="phone"
                       value={orgForm.phone}
                       onChange={handleOrgFormChange}
-                      error={orgFormErrors.phone}
+                      error={orgValidation.errors.phone}
                       leftAddon={<Phone className="ml-3 h-5 w-5 text-gray-400" />}
                     />
                     
@@ -270,12 +226,11 @@ const SettingsPage: React.FC = () => {
                         value={orgForm.address}
                         onChange={handleOrgFormChange}
                         placeholder="Enter organization address..."
-                      ></textarea>
-                      {orgFormErrors.address && (
+                      ></textarea>                    {orgValidation.errors.address && (
                         <p className="mt-2 text-sm text-red-600 font-medium">
-                          {orgFormErrors.address}
+                          {orgValidation.errors.address}
                         </p>
-                      )}
+                    )}
                     </div>
                   </div>
                   

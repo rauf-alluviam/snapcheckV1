@@ -6,20 +6,20 @@ import User from '../models/User.js';
 import Organization from '../models/Organization.js';
 import { auth } from '../middleware/auth.js';
 import { sendEmail, generateResetPasswordEmail } from '../utils/email.js';
+import { 
+  validateUser,
+  validatePasswordStrength 
+} from '../validation/middleware.js';
 
 const router = express.Router();
 
 // @route   POST api/auth/register-admin
 // @desc    Register initial admin user with default organization
 // @access  Public (only works once when no admin exists)
-router.post('/register-admin', async (req, res) => {
-  try {
+router.post('/register-admin', validateUser.register, validatePasswordStrength, async (req, res) => {  try {
     const { name, email, password } = req.body;
     
-    // Validate input
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'All fields are required' });
-    }
+    // Input is already validated by middleware
     
     // Check if admin already exists
     // const existingAdmin = await User.findOne({ role: 'admin' });
@@ -101,14 +101,11 @@ router.post('/register-admin', async (req, res) => {
 // @route   POST api/auth/register
 // @desc    Register a user
 // @access  Public
-router.post('/register', async (req, res) => {
+router.post('/register', validateUser.register, validatePasswordStrength, async (req, res) => {
   try {
     const { name, email, password, organizationId, role, customRole } = req.body;
     
-    // Validate input
-    if (!name || !email || !password || !organizationId || !role) {
-      return res.status(400).json({ message: 'All required fields must be provided' });
-    }
+    // Input is already validated by middleware
     
     // Check if user already exists
     let user = await User.findOne({ email });
@@ -193,14 +190,11 @@ router.post('/register', async (req, res) => {
 // @route   POST api/auth/login
 // @desc    Authenticate user & get token
 // @access  Public
-router.post('/login', async (req, res) => {
+router.post('/login', validateUser.login, async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    // Validate input
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
-    }
+    // Input is already validated by middleware
     
     // Check if user exists
     const user = await User.findOne({ email });
@@ -267,14 +261,11 @@ router.get('/', auth, async (req, res) => {
 // @route   POST api/auth/forgot-password
 // @desc    Request password reset email
 // @access  Public
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', validateUser.forgotPassword, async (req, res) => {
   try {
     const { email } = req.body;
     
-    // Validate input
-    if (!email) {
-      return res.status(400).json({ message: 'Email is required' });
-    }
+    // Input is already validated by middleware
     
     // Find user by email
     const user = await User.findOne({ email });
@@ -319,19 +310,12 @@ router.post('/forgot-password', async (req, res) => {
 // @route   POST api/auth/reset-password/:token
 // @desc    Reset password using token
 // @access  Public
-router.post('/reset-password/:token', async (req, res) => {
+router.post('/reset-password/:token', validateUser.resetPassword, validatePasswordStrength, async (req, res) => {
   try {
     const { password } = req.body;
     const { token } = req.params;
     
-    // Validate input
-    if (!password) {
-      return res.status(400).json({ message: 'Password is required' });
-    }
-    
-    if (password.length < 6) {
-      return res.status(400).json({ message: 'Password must be at least 6 characters' });
-    }
+    // Input is already validated by middleware
     
     // Find user by token and check expiration
     const user = await User.findOne({
@@ -360,18 +344,11 @@ router.post('/reset-password/:token', async (req, res) => {
 // @route   POST api/auth/change-password
 // @desc    Change password when logged in
 // @access  Private
-router.post('/change-password', auth, async (req, res) => {
+router.post('/change-password', auth, validateUser.changePassword, validatePasswordStrength, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     
-    // Validate input
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: 'Current password and new password are required' });
-    }
-    
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: 'New password must be at least 6 characters' });
-    }
+    // Input is already validated by middleware
     
     // Find user
     const user = await User.findById(req.user.id);

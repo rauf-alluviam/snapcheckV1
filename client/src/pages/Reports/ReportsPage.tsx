@@ -5,6 +5,10 @@ import Select from '../../components/ui/Select';
 import { useAuth } from '../../contexts/AuthContext';
 import { Download, AlertCircle } from 'lucide-react';
 import api from '../../utils/api';
+import { reportSchemas } from '../../validation/schemas';
+import { useValidation } from '../../validation/hooks';
+import { handleApiValidationErrors, getErrorMessage } from '../../validation/utils';
+import ValidatedInput from '../../components/ui/ValidatedInput';
 
 interface FilterOption {
   id: string;
@@ -28,6 +32,19 @@ const ReportsPage: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Record<string, string>>({});
+    // Use validation for report generation
+  const validation = useValidation(reportSchemas.inspectionSummary);
+  
+  // Validate form data whenever it changes
+  useEffect(() => {
+    const reportData = {
+      startDate: new Date(dateRange.startDate).toISOString(),
+      endDate: new Date(dateRange.endDate).toISOString(),
+      format: format,
+      ...filters
+    };
+    validation.validate(reportData);
+  }, [dateRange, format, filters, validation]);
   
   const reportOptions = [
     { value: 'inspection-summary', label: 'Inspection Summary Report', access: ['admin', 'approver'] },
@@ -140,18 +157,29 @@ const ReportsPage: React.FC = () => {
         return [];
     }
   };
-
   const handleGenerateReport = async () => {
     try {
       setIsGenerating(true);
       setError(null);
       
-      const response = await api.post(`/api/reports/${selectedReport}`, {
-        ...dateRange,
+      // Prepare and validate data
+      const reportData = {
+        startDate: new Date(dateRange.startDate).toISOString(),
+        endDate: new Date(dateRange.endDate).toISOString(),
+        format: format,
         ...filters,
-        format,
         organizationId: user?.organizationId
-      }, {
+      };
+      
+      // Validate before submitting
+      const validationResult = validation.validate(reportData);
+      if (!validationResult.success) {
+        setError('Please check the form for validation errors');
+        setIsGenerating(false);
+        return;
+      }
+      
+      const response = await api.post(`/api/reports/${selectedReport}`, reportData, {
         responseType: format === 'pdf' ? 'blob' : 'json'
       });
 
@@ -177,22 +205,19 @@ const ReportsPage: React.FC = () => {
         link.href = url;
         link.setAttribute('download', fileName);
         document.body.appendChild(link);
-        link.click();
-        link.remove();
-      }    } catch (err: any) {
+        link.click();        link.remove();
+      }
+    } catch (err: any) {
       console.error('Error generating report:', err);
-      const errorResponse = err.response?.data?.error;
       
-      if (errorResponse) {
-        setError(
-          `${errorResponse.message}${errorResponse.details ? '\n' + 
-          (Array.isArray(errorResponse.details) 
-            ? errorResponse.details.join('\n') 
-            : errorResponse.details)
-          : ''}`
-        );
-      } else {
-        setError('Failed to generate report. Please try again.');
+      // Handle validation errors from API
+      const hasValidationErrors = handleApiValidationErrors(err, (field: string, message: string) => {
+        validation.setFieldError(field, message);
+      });
+      
+      if (!hasValidationErrors) {
+        const errorMessage = getErrorMessage(err);
+        setError(errorMessage);
       }
     } finally {
       setIsGenerating(false);
@@ -208,8 +233,20 @@ const ReportsPage: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>Generate Report</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
+        </CardHeader>        <CardContent className="space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Select
               label="Report Type"
@@ -221,25 +258,21 @@ const ReportsPage: React.FC = () => {
               options={reportOptions}
             />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Start Date</label>
-              <input
-                type="date"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                value={dateRange.startDate}
-                onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-              />
-            </div>
+            <ValidatedInput
+              label="Start Date"
+              type="date"
+              value={dateRange.startDate}
+              onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+              error={validation.errors.startDate}
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">End Date</label>
-              <input
-                type="date"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                value={dateRange.endDate}
-                onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-              />
-            </div>
+            <ValidatedInput
+              label="End Date"
+              type="date"
+              value={dateRange.endDate}
+              onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+              error={validation.errors.endDate}
+            />
 
             <Select
               label="Format"

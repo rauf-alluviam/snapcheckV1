@@ -2,27 +2,54 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import { auth, isAdmin } from '../middleware/auth.js';
+import { 
+  validateUser,
+  validatePasswordStrength,
+  validateQuery 
+} from '../validation/middleware.js';
 
 const router = express.Router();
 
 // @route   GET api/users
-// @desc    Get all users in the organization
-// @access  Private (Admin only)
-router.get('/', isAdmin, async (req, res) => {
+// @desc    Get all users in the organization (with optional role filtering)
+// @access  Private (Admin only for full access, Approver for limited analytics)
+router.get('/', auth, validateQuery.userFilters, async (req, res) => {
   try {
-    const users = await User.find({ organizationId: req.user.organizationId })
-      .select('-password')
+    // Check user permissions
+    if (req.user.role !== 'admin' && req.user.role !== 'approver') {
+      return res.status(403).json({ 
+        message: 'Access denied. Admin or approver role required.',
+        role: req.user.role
+      });
+    }
+
+    const { role } = req.query;
+    const filter = { organizationId: req.user.organizationId };
+    
+    // Add role filter if specified
+    if (role && role !== 'all') {
+      filter.role = role;
+    }
+
+    // For approvers, limit the data they can see for analytics purposes
+    let selectFields = '-password';
+    if (req.user.role === 'approver') {
+      selectFields = '_id name role'; // Limited fields for approvers
+    }
+    
+    const users = await User.find(filter)
+      .select(selectFields)
       .populate('organizationId', 'name');
     
     const transformedUsers = users.map(user => {
       const { organizationId, ...rest } = user.toObject();
       return {
         ...rest,
-        organizationName: organizationId.name
+        organizationName: organizationId?.name || 'Unknown Organization'
       };
     });
     
-    res.json(transformedUsers);  } catch (err) {
+    res.json(transformedUsers);} catch (err) {
     console.error('Error fetching users:', err.message);
     res.status(500).json({ message: 'Server error' });
   }
@@ -86,14 +113,11 @@ router.get('/:id', isAdmin, async (req, res) => {
 // @route   POST api/users
 // @desc    Create a new user
 // @access  Private (Admin only)
-router.post('/', isAdmin, async (req, res) => {
+router.post('/', isAdmin, validateUser.createUser, validatePasswordStrength, async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
     
-    // Validate input
-    if (!name || !email || !password || !role) {
-      return res.status(400).json({ message: 'All fields are required' });
-    }
+    // Input is already validated by middleware
     
     // Check if user already exists
     let user = await User.findOne({ email });
@@ -138,14 +162,11 @@ router.post('/', isAdmin, async (req, res) => {
 // @route   PUT api/users/:id
 // @desc    Update a user
 // @access  Private (Admin only)
-router.put('/:id', isAdmin, async (req, res) => {
+router.put('/:id', isAdmin, validateUser.updateUser, async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
     
-    // Validate input
-    if (!name || !email || !role) {
-      return res.status(400).json({ message: 'Name, email, and role are required' });
-    }
+    // Input is already validated by middleware
     
     // Find user
     let user = await User.findById(req.params.id);
@@ -248,14 +269,11 @@ router.delete('/:id', isAdmin, async (req, res) => {
 // @route   PUT api/users/profile
 // @desc    Update logged in user's profile
 // @access  Private
-router.put('/profile', auth, async (req, res) => {
+router.put('/profile', auth, validateUser.updateProfile, async (req, res) => {
   try {
     const { name, email, mobileNumber, address, currentPassword, newPassword } = req.body;
     
-    // Validate input
-    if (!name || !email) {
-      return res.status(400).json({ message: 'Name and email are required' });
-    }
+    // Input is already validated by middleware
     
     // Find user
     let user = await User.findById(req.user.id);

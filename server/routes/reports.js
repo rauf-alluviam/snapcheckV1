@@ -6,11 +6,16 @@ import PDFDocument from 'pdfkit';
 import { Parser } from 'json2csv';
 import dayjs from 'dayjs';
 import xlsx from 'xlsx';
+import { formatDateForCSV, formatDateTimeForCSV, formatDateForPDF, formatDateTimeForPDF } from '../utils/dateUtils.js';
 import { 
   ReportValidationError, 
   ReportGenerationError, 
   ReportNotFoundError 
 } from '../utils/errors.js';
+import { 
+  validateReport,
+  validateDateRange 
+} from '../validation/middleware.js';
 
 const router = express.Router();
 
@@ -82,7 +87,7 @@ const handleReportError = (err, reportType) => {
 // @route   POST api/reports/analytics
 // @desc    Get analytics data
 // @access  Private (Admin only)
-router.post('/analytics', isAdmin, async (req, res, next) => {
+router.post('/analytics', isAdmin, validateReport.analytics, validateDateRange, async (req, res, next) => {
   try {
     const { startDate, endDate, category, inspector } = req.body;
     
@@ -210,7 +215,7 @@ router.post('/analytics', isAdmin, async (req, res, next) => {
 // @route   POST api/reports/inspection-summary
 // @desc    Generate inspection summary report
 // @access  Private (Admin only)
-router.post('/inspection-summary', isAdmin, async (req, res, next) => {
+router.post('/inspection-summary', isAdmin, validateReport.inspectionSummary, validateDateRange, async (req, res, next) => {
   try {
     const { startDate, endDate, category, status, format = 'pdf' } = req.body;
     
@@ -240,9 +245,7 @@ router.post('/inspection-summary', isAdmin, async (req, res, next) => {
 
     if (!inspections || inspections.length === 0) {
       throw new ReportNotFoundError('No inspection data found for the specified criteria');
-    }
-
-    // Transform inspections for report
+    }    // Transform inspections for report
     const transformedInspections = inspections.map(inspection => ({
       ID: inspection._id,
       WorkflowName: inspection.workflowName,
@@ -251,8 +254,8 @@ router.post('/inspection-summary', isAdmin, async (req, res, next) => {
       Status: inspection.status,
       Inspector: inspection.assignedTo.name,
       Approver: inspection.approverId.name,
-      InspectionDate: new Date(inspection.inspectionDate).toLocaleDateString(),
-      CreatedAt: new Date(inspection.createdAt).toLocaleString()
+      InspectionDate: formatDateForCSV(inspection.inspectionDate),
+      CreatedAt: formatDateTimeForCSV(inspection.createdAt)
     }));
 
     // Generate report based on format
@@ -282,15 +285,14 @@ router.post('/inspection-summary', isAdmin, async (req, res, next) => {
         res.setHeader('Content-Disposition', 'attachment; filename=inspection-summary.pdf');
         
         doc.pipe(res);
-        
-        // Document title
+          // Document title
         doc.fontSize(20).text('Inspection Summary Report', { align: 'center' });
         doc.moveDown();
         
         // Date range
         if (startDate && endDate) {
           doc.fontSize(12).text(
-            `Date Range: ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}`,
+            `Date Range: ${formatDateForPDF(startDate)} to ${formatDateForPDF(endDate)}`,
             { align: 'center' }
           );
           doc.moveDown();
@@ -321,7 +323,7 @@ router.post('/inspection-summary', isAdmin, async (req, res, next) => {
 // @route   POST api/reports/inspector-performance
 // @desc    Generate inspector performance report
 // @access  Private (Admin only)
-router.post('/inspector-performance', isAdmin, async (req, res, next) => {
+router.post('/inspector-performance', isAdmin, validateReport.inspectorPerformance, validateDateRange, async (req, res, next) => {
   try {
     const { startDate, endDate, inspector, format = 'pdf' } = req.body;
     
@@ -424,15 +426,14 @@ router.post('/inspector-performance', isAdmin, async (req, res, next) => {
         res.setHeader('Content-Disposition', 'attachment; filename=inspector-performance.pdf');
         
         doc.pipe(res);
-        
-        // Document title
+          // Document title
         doc.fontSize(20).text('Inspector Performance Report', { align: 'center' });
         doc.moveDown();
         
         // Date range
         if (startDate && endDate) {
           doc.fontSize(12).text(
-            `Date Range: ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}`,
+            `Date Range: ${formatDateForPDF(startDate)} to ${formatDateForPDF(endDate)}`,
             { align: 'center' }
           );
           doc.moveDown();
@@ -457,6 +458,198 @@ router.post('/inspector-performance', isAdmin, async (req, res, next) => {
     }
   } catch (err) {
     next(err);
+  }
+});
+
+// @route   GET api/reports/user-wise
+// @desc    Get user-wise inspection data for admin and approvers
+// @access  Private/Admin or Approver
+router.get('/user-wise', auth, async (req, res) => {
+  try {
+    // Check user permissions
+    if (req.user.role !== 'admin' && req.user.role !== 'approver') {
+      return res.status(403).json({ 
+        message: 'Access denied. Admin or approver role required.',
+        role: req.user.role
+      });
+    }
+
+    const { organizationId } = req.user;
+    const { startDate, endDate, userRole, exportFormat } = req.query;
+
+    // Set default date range (last 30 days)
+    const defaultEndDate = dayjs();
+    const defaultStartDate = defaultEndDate.subtract(30, 'day');
+
+    const start = startDate ? dayjs(startDate) : defaultStartDate;
+    const end = endDate ? dayjs(endDate) : defaultEndDate;
+
+    if (!start.isValid() || !end.isValid()) {
+      return res.status(400).json({ message: 'Invalid date format' });
+    }
+
+    // Build user filter query
+    let userQuery = { organizationId };
+    if (userRole && userRole !== 'all') {
+      userQuery.role = userRole;
+    }
+
+    // Get all users in the organization
+    const users = await User.find(userQuery).select('_id name email role');    // Build inspection aggregation pipeline
+    const matchStage = {
+      organizationId,
+      inspectionDate: {
+        $gte: start.toDate(),
+        $lte: end.toDate()
+      }
+    };
+
+    // Aggregate inspection data by user
+    const userWiseData = await Promise.all(
+      users.map(async (user) => {
+        // Get inspections assigned to user (as inspector)
+        const assignedInspections = await Inspection.find({
+          ...matchStage,
+          assignedTo: user._id
+        });
+
+        // Get inspections approved/rejected by user (as approver)
+        const processedInspections = await Inspection.find({
+          ...matchStage,
+          $or: [
+            { approvedBy: user._id },
+            { rejectedBy: user._id },
+            { 'approvers.userId': user._id }
+          ]
+        });
+
+        // Calculate statistics
+        const assignedStats = {
+          total: assignedInspections.length,
+          pending: assignedInspections.filter(i => i.status === 'pending').length,
+          approved: assignedInspections.filter(i => i.status === 'approved').length,
+          rejected: assignedInspections.filter(i => i.status === 'rejected').length,
+          autoApproved: assignedInspections.filter(i => i.status === 'auto-approved').length
+        };
+
+        const processedStats = {
+          total: processedInspections.length,
+          approved: processedInspections.filter(i => 
+            i.approvedBy?.toString() === user._id.toString() || 
+            i.approvers.some(a => a.userId.toString() === user._id.toString() && a.status === 'approved')
+          ).length,
+          rejected: processedInspections.filter(i => 
+            i.rejectedBy?.toString() === user._id.toString() || 
+            i.approvers.some(a => a.userId.toString() === user._id.toString() && a.status === 'rejected')
+          ).length
+        };
+
+        // Calculate average response time for assigned inspections
+        const completedAssigned = assignedInspections.filter(i => 
+          i.status === 'approved' || i.status === 'rejected'
+        );
+        
+        let avgResponseTime = 0;
+        if (completedAssigned.length > 0) {
+          const totalTime = completedAssigned.reduce((sum, inspection) => {
+            const completedAt = inspection.approvedAt || inspection.rejectedAt;
+            if (completedAt) {
+              return sum + (new Date(completedAt) - new Date(inspection.createdAt));
+            }
+            return sum;
+          }, 0);
+          avgResponseTime = totalTime / completedAssigned.length / (1000 * 60 * 60); // Convert to hours
+        }
+
+        // Get category breakdown for assigned inspections
+        const categoryBreakdown = assignedInspections.reduce((acc, inspection) => {
+          acc[inspection.category] = (acc[inspection.category] || 0) + 1;
+          return acc;
+        }, {});
+
+        return {
+          user: {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role
+          },
+          assigned: assignedStats,
+          processed: processedStats,
+          avgResponseTimeHours: Math.round(avgResponseTime * 100) / 100,
+          categoryBreakdown,
+          performance: {
+            completionRate: assignedStats.total > 0 ? 
+              Math.round(((assignedStats.approved + assignedStats.rejected + assignedStats.autoApproved) / assignedStats.total) * 100) : 0,
+            approvalRate: processedStats.total > 0 ? 
+              Math.round((processedStats.approved / processedStats.total) * 100) : 0
+          }
+        };
+      })
+    );
+
+    // Sort by total assigned inspections (most active first)
+    userWiseData.sort((a, b) => b.assigned.total - a.assigned.total);
+
+    // If export format is requested, handle export
+    if (exportFormat) {
+      const exportData = userWiseData.map(userData => ({
+        'User Name': userData.user.name,
+        'Email': userData.user.email,
+        'Role': userData.user.role,
+        'Total Assigned': userData.assigned.total,
+        'Assigned Pending': userData.assigned.pending,
+        'Assigned Approved': userData.assigned.approved,
+        'Assigned Rejected': userData.assigned.rejected,
+        'Auto Approved': userData.assigned.autoApproved,
+        'Total Processed': userData.processed.total,
+        'Processed Approved': userData.processed.approved,
+        'Processed Rejected': userData.processed.rejected,
+        'Completion Rate (%)': userData.performance.completionRate,
+        'Approval Rate (%)': userData.performance.approvalRate,
+        'Avg Response Time (hours)': userData.avgResponseTimeHours
+      }));
+
+      if (exportFormat === 'csv') {
+        const parser = new Parser();
+        const csv = parser.parse(exportData);
+        res.header('Content-Type', 'text/csv');
+        res.attachment(`user-wise-report-${start.format('YYYY-MM-DD')}-to-${end.format('YYYY-MM-DD')}.csv`);
+        return res.send(csv);
+      } else if (exportFormat === 'excel') {
+        const ws = xlsx.utils.json_to_sheet(exportData);
+        const wb = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(wb, ws, 'User-wise Report');
+        
+        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        res.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.attachment(`user-wise-report-${start.format('YYYY-MM-DD')}-to-${end.format('YYYY-MM-DD')}.xlsx`);
+        return res.send(buffer);
+      }
+    }
+
+    // Return JSON data
+    res.json({
+      success: true,
+      data: userWiseData,
+      dateRange: {
+        start: start.format('YYYY-MM-DD'),
+        end: end.format('YYYY-MM-DD')
+      },
+      summary: {
+        totalUsers: userWiseData.length,
+        totalInspections: userWiseData.reduce((sum, u) => sum + u.assigned.total, 0),
+        totalProcessed: userWiseData.reduce((sum, u) => sum + u.processed.total, 0)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching user-wise data:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching user-wise data',
+      error: error.message 
+    });
   }
 });
 

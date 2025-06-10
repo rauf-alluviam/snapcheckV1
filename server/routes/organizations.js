@@ -1,13 +1,14 @@
 import express from 'express';
 import Organization from '../models/Organization.js';
 import { auth, isAdmin } from '../middleware/auth.js';
+import { validateOrganization } from '../validation/middleware.js';
 
 const router = express.Router();
 
 // @route   POST api/organizations
 // @desc    Create a new organization (admin only)
 // @access  Private (Admin only)
-router.post('/', isAdmin, async (req, res) => {
+router.post('/', isAdmin, validateOrganization.create, async (req, res) => {
   try {
     const { 
       name, 
@@ -20,10 +21,7 @@ router.post('/', isAdmin, async (req, res) => {
       settings 
     } = req.body;
     
-    // Validate input
-    if (!name || !address || !phone || !email) {
-      return res.status(400).json({ message: 'All fields are required' });
-    }
+    // Input is already validated by middleware
     
     // Create new organization
     const newOrg = new Organization({
@@ -103,14 +101,11 @@ router.get('/current', auth, async (req, res) => {
 // @route   PUT api/organizations/current
 // @desc    Update current user's organization
 // @access  Private (Admin only)
-router.put('/current', isAdmin, async (req, res) => {
+router.put('/current', isAdmin, validateOrganization.update, async (req, res) => {
   try {
     const { name, address, phone, email } = req.body;
     
-    // Validate input
-    if (!name || !address || !phone || !email) {
-      return res.status(400).json({ message: 'All fields are required' });
-    }
+    // Input is already validated by middleware
     
     let organization = await Organization.findById(req.user.organizationId);
     
@@ -137,7 +132,7 @@ router.put('/current', isAdmin, async (req, res) => {
 // @route   POST api/organizations/register
 // @desc    Register a new organization during user signup
 // @access  Public
-router.post('/register', async (req, res) => {
+router.post('/register', validateOrganization.create, async (req, res) => {
   try {
     const { 
       name, 
@@ -149,10 +144,7 @@ router.post('/register', async (req, res) => {
       settings 
     } = req.body;
     
-    // Validate input
-    if (!name || !address || !phone || !email) {
-      return res.status(400).json({ message: 'All fields are required' });
-    }
+    // Input is already validated by middleware
     
     // Check if organization with same name already exists
     const existingOrg = await Organization.findOne({ name });
@@ -188,13 +180,11 @@ router.post('/register', async (req, res) => {
 // @route   POST api/organizations/:id/roles
 // @desc    Add a custom role to organization
 // @access  Private (Admin only)
-router.post('/:id/roles', isAdmin, async (req, res) => {
+router.post('/:id/roles', isAdmin, validateOrganization.addRole, async (req, res) => {
   try {
     const { name, permissions } = req.body;
     
-    if (!name || !permissions || !Array.isArray(permissions)) {
-      return res.status(400).json({ message: 'Role name and permissions array are required' });
-    }
+    // Input is already validated by middleware
     
     const organization = await Organization.findById(req.params.id);
     if (!organization) {
