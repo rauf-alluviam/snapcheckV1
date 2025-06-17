@@ -1,4 +1,5 @@
 import { validationSchemas } from './schemas.js';
+import { handleValidationError } from '../utils/errorHandler.js';
 
 /**
  * Generic validation middleware factory
@@ -14,23 +15,9 @@ export const validate = (schema, source = 'body') => {
       abortEarly: false, // Get all validation errors
       stripUnknown: true, // Remove unknown fields
       allowUnknown: false // Don't allow unknown fields
-    });
-
-    if (error) {
-      const errors = error.details.map(detail => ({
-        field: detail.path.join('.'),
-        message: detail.message,
-        value: detail.context?.value
-      }));
-
-      return res.status(400).json({
-        message: 'Validation failed',
-        errors,
-        details: `${errors.length} validation error(s) found`
-      });
-    }
-
-    // Replace original data with validated and cleaned data
+    });    if (error) {
+      return handleValidationError(req, res, error.details);
+    }    // Replace original data with validated and cleaned data
     req[source] = value;
     next();
   };

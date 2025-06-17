@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
+import ValidationError from '../ui/ValidationError';
+import { userSchemas } from '../../validation/schemas';
+import { useValidation } from '../../validation/hooks';
+import { handleApiValidationErrors, getErrorMessage } from '../../validation/utils';
 
 interface ForgotPasswordFormInputs {
   email: string;
@@ -14,15 +18,42 @@ const ForgotPasswordForm: React.FC = () => {
   const { forgotPassword } = useAuth();
   const [loading, setLoading] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [validationError, setValidationError] = useState<any>(null);
+  
+  // Use enhanced validation system
+  const validation = useValidation(userSchemas.forgotPassword);
   
   const { 
     register, 
     handleSubmit, 
-    formState: { errors } 
+    formState: { errors },
+    watch
   } = useForm<ForgotPasswordFormInputs>();
 
+  // Watch form values for real-time validation
+  const formData = watch();
+
+  // Real-time validation on form changes
+  useEffect(() => {
+    if (formData.email) {
+      validation.validate(formData);
+    }
+  }, [formData, validation]);
+
   const onSubmit = async (data: ForgotPasswordFormInputs) => {
+    // Clear previous validation errors
+    setValidationError(null);
+    
+    // Validate before submission
+    const validationResult = validation.validate(data);
+    if (!validationResult.success) {
+      setValidationError(validationResult);
+      return;
+    }
+
     setLoading(true);
+    setSubmitMessage(null);
+    
     try {
       const result = await forgotPassword(data.email);
       
@@ -37,12 +68,21 @@ const ForgotPasswordForm: React.FC = () => {
           text: result.error || 'An error occurred. Please try again.' 
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Forgot password submission error:', err);
-      setSubmitMessage({ 
-        type: 'error', 
-        text: 'An unexpected error occurred. Please try again later.'
+      
+      // Handle validation errors from API
+      const hasValidationErrors = handleApiValidationErrors(err, (field: string, message: string) => {
+        validation.setFieldError(field, message);
       });
+      
+      if (!hasValidationErrors) {
+        const errorMessage = getErrorMessage(err);
+        setSubmitMessage({ 
+          type: 'error', 
+          text: errorMessage
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -56,6 +96,11 @@ const ForgotPasswordForm: React.FC = () => {
       <p className="text-gray-600 text-center">
         Enter your email address and we'll send you a link to reset your password.
       </p>
+      
+      {/* Enhanced Validation Error Display */}
+      {validationError && (
+        <ValidationError error={validationError} />
+      )}
       
       {submitMessage && (
         <div className={`p-3 ${submitMessage.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'} rounded-md text-sm`}>
@@ -80,7 +125,7 @@ const ForgotPasswordForm: React.FC = () => {
                   message: 'Invalid email address'
                 }
               })}
-              error={errors.email?.message}
+              error={errors.email?.message || validation.errors.email}
             />
           </div>
         </div>
