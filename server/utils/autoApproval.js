@@ -73,7 +73,6 @@ export const checkAutoApprovalCriteria = (inspection, rules) => {
     // This would require querying the database for previous submissions
     // Implementation depends on your specific requirements
   }
-
   return { canAutoApprove: true, reason: 'All criteria met' };
 };
 

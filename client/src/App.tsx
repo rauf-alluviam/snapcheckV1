@@ -137,13 +137,13 @@ function App() {
                   element={<ReportsPage />} 
                   allowedRoles={['admin', 'approver']}
                 />
-              } />
-                {/* Approver-specific routes */}
+              } />              {/* Approver-specific routes */}
               <Route path="approvals" element={
                 <ProtectedRoute 
                   element={<InspectionsPage />} 
                   allowedRoles={['admin', 'approver']}
-                />              } />
+                />              
+                } />
               
               {/* Inspector-specific routes */}
               <Route path="my-assignments" element={

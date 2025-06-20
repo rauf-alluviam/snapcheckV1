@@ -9,6 +9,7 @@ import { CalendarIcon, Download, User, CheckCircle, XCircle, AlertCircle } from 
 import Modal from '../../components/ui/Modal';
 import api from '../../utils/api';
 import { Inspection } from '../../types';
+import { formatDateShort, formatDateTimeForDisplay } from '../../utils/dateUtils';
 
 const InspectionDetailPage: React.FC = () => {
   const { id } = useParams();
@@ -207,12 +208,11 @@ const InspectionDetailPage: React.FC = () => {
               <div>
                 <label className="text-sm font-medium text-gray-500">Type</label>
                 <p>{inspection.inspectionType}</p>
-              </div>
-              <div>
+              </div>              <div>
                 <label className="text-sm font-medium text-gray-500">Date</label>
                 <p className="flex items-center">
                   <CalendarIcon className="h-4 w-4 mr-1" />
-                  {new Date(inspection.inspectionDate).toLocaleDateString()}
+                  {formatDateShort(inspection.inspectionDate)}
                 </p>
               </div>
             </div>
@@ -280,15 +280,14 @@ const InspectionDetailPage: React.FC = () => {
           <CardHeader>
             <CardTitle>Timeline</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent>            <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-gray-500">Created</label>
-                <p>{new Date(inspection.createdAt).toLocaleString()}</p>
+                <p>{formatDateTimeForDisplay(inspection.createdAt)}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Last Updated</label>
-                <p>{new Date(inspection.updatedAt).toLocaleString()}</p>
+                <p>{formatDateTimeForDisplay(inspection.updatedAt)}</p>
               </div>
             </div>
           </CardContent>
@@ -318,10 +317,9 @@ const InspectionDetailPage: React.FC = () => {
                         onClick={() => setCurrentMediaUrl(url)}
                       />
                     ))}
-                  </div>
-                )}
+                  </div>                )}
                 <p className="text-sm text-gray-500 mt-2">
-                  {new Date(step.timestamp).toLocaleString()}
+                  {formatDateTimeForDisplay(step.timestamp)}
                 </p>
               </div>
             ))}

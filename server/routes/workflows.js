@@ -1,18 +1,31 @@
 import express from 'express';
 import Workflow from '../models/Workflow.js';
 import { auth, isAdmin, sameOrganization, canEditWorkflow } from '../middleware/auth.js';
+import { validateWorkflow, validateQuery } from '../validation/middleware.js';
 
 const router = express.Router();
 
 // @route   GET api/workflows
 // @desc    Get all workflows for the user's organization
 // @access  Private
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, validateQuery.workflowFilters, async (req, res) => {
   try {
     const workflows = await Workflow.find({ organizationId: req.user.organizationId });
-    res.json(workflows);
-  } catch (err) {
+    res.json(workflows);  } catch (err) {
     console.error('Error fetching workflows:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET api/workflows/categories
+// @desc    Get all unique workflow categories in the organization
+// @access  Private
+router.get('/categories', auth, async (req, res) => {
+  try {
+    const uniqueCategories = await Workflow.distinct('category', { organizationId: req.user.organizationId });
+    res.json(uniqueCategories);
+  } catch (err) {
+    console.error('Error fetching workflow categories:', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -48,14 +61,11 @@ router.get('/:id', auth, async (req, res) => {
 // @route   POST api/workflows
 // @desc    Create a new workflow
 // @access  Private (Admin only)
-router.post('/', isAdmin, async (req, res) => {
+router.post('/', isAdmin, validateWorkflow.create, async (req, res) => {
   try {
     const { name, category, description, steps } = req.body;
     
-    // Validate input
-    if (!name || !category || !description || !steps || !Array.isArray(steps) || steps.length === 0) {
-      return res.status(400).json({ message: 'All fields are required and steps must be a non-empty array' });
-    }
+    // Input is already validated by middleware
       // Create new workflow
     const workflow = new Workflow({
       name,
@@ -79,14 +89,11 @@ router.post('/', isAdmin, async (req, res) => {
 // @route   PUT api/workflows/:id
 // @desc    Update a workflow
 // @access  Private (Admin or Creator only)
-router.put('/:id', canEditWorkflow, async (req, res) => {
+router.put('/:id', canEditWorkflow, validateWorkflow.update, async (req, res) => {
   try {
     const { name, category, description, steps } = req.body;
     
-    // Validate input
-    if (!name || !category || !description || !steps || !Array.isArray(steps) || steps.length === 0) {
-      return res.status(400).json({ message: 'All fields are required and steps must be a non-empty array' });
-    }
+    // Input is already validated by middleware
     
     // Use the workflow from middleware
     let workflow = req.workflow;
@@ -167,21 +174,7 @@ router.post('/duplicate/:id', isAdmin, async (req, res) => {
     if (err.kind === 'ObjectId') {
       return res.status(404).json({ message: 'Workflow not found' });
     }
-    
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   GET api/workflows/categories
-// @desc    Get all unique workflow categories in the organization
-// @access  Private
-router.get('/categories', auth, async (req, res) => {
-  try {
-    const uniqueCategories = await Workflow.distinct('category', { organizationId: req.user.organizationId });
-    res.json(uniqueCategories);
-  } catch (err) {
-    console.error('Error fetching workflow categories:', err.message);
-    res.status(500).json({ message: 'Server error' });
+      res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -220,13 +213,7 @@ router.patch('/:id/approval-settings', isAdmin, async (req, res) => {
         valueField: autoApprovalRules.valueField || 'responseText',
         requirePhoto: typeof autoApprovalRules.requirePhoto === 'boolean' ? autoApprovalRules.requirePhoto : true,
         frequencyLimit: autoApprovalRules.frequencyLimit,
-        frequencyPeriod: autoApprovalRules.frequencyPeriod || 'day'
-      };
-    }
-    
-    // Update notification frequency if provided
-    if (notificationFrequency) {
-      workflow.notificationFrequency = notificationFrequency;
+        frequencyPeriod: autoApprovalRules.frequencyPeriod || 'day'      };
     }
     
     // Save the updated workflow

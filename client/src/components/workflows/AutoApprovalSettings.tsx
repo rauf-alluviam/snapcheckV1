@@ -5,6 +5,10 @@ import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Switch from '../../components/ui/Switch';
 import api from '../../utils/api';
+import { workflowSchemas } from '../../validation/schemas';
+import { useValidation } from '../../validation/hooks';
+import { handleApiValidationErrors, getErrorMessage } from '../../validation/utils';
+import ValidatedInput from '../ui/ValidatedInput';
 
 interface AutoApprovalSettingsProps {
   workflowId: string;  initialSettings: {
@@ -20,7 +24,6 @@ interface AutoApprovalSettingsProps {
       frequencyLimit?: number;
       frequencyPeriod: 'hour' | 'day' | 'week';
     };
-    notificationFrequency: 'immediate' | 'hourly' | 'daily' | 'weekly';
   };
   onSettingsUpdate: () => void;
 }

@@ -5,7 +5,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
+import ValidationError from '../ui/ValidationError';
 import { Mail, Lock, User, Building, Phone, Globe, Eye, EyeOff } from 'lucide-react';
+import { getReactHookFormRules, validateForm } from '../../validation/fieldValidation';
 import api from '../../utils/api';
 
 /**
@@ -49,12 +51,12 @@ interface RegisterFormInputs {
 const RegisterForm: React.FC = () => {
   const { register: registerUser, state } = useAuth();
   const { loading, error } = state;
-  const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();  const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [organizations, setOrganizations] = useState<Array<{ value: string; label: string; }>>([]);
   const [loadingOrgs, setLoadingOrgs] = useState(true);
   const [orgLoadError, setOrgLoadError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<any>(null);
   
   const { 
     register, 
@@ -71,17 +73,25 @@ const RegisterForm: React.FC = () => {
 
   const toggleConfirmPasswordVisibility = () => {
     setShowConfirmPassword(!showConfirmPassword);
-  };
-
-  const onSubmit = async (data: RegisterFormInputs) => {
+  };  const onSubmit = async (data: RegisterFormInputs) => {
     try {
+      // Clear previous validation errors
+      setValidationError(null);
+      
+      // Client-side validation
+      const clientValidation = validateForm(data);
+      if (!clientValidation.isValid) {
+        setValidationError(clientValidation);
+        return;
+      }
+      
       let organizationId = data.organizationId;
       
       // If creating a new organization
       if (data.createNewOrg) {
         try {
           console.log('Creating new organization:', data.orgName);
-          const orgResponse = await api.post('/api/organizations/register', {
+          const orgData = {
             name: data.orgName,
             address: data.orgAddress,
             phone: data.orgPhone,
@@ -92,15 +102,39 @@ const RegisterForm: React.FC = () => {
               allowUserInvites: true,
               requireApproverReview: true
             }
-          });
+          };
+          console.log('Organization data being sent:', orgData);
+          
+          const orgResponse = await api.post('/api/organizations/register', orgData);
           organizationId = orgResponse.data._id;
-          console.log('Organization created successfully:', orgResponse.data);
-        } catch (orgError: any) {
+          console.log('Organization created successfully:', orgResponse.data);        } catch (orgError: any) {
           console.error('Failed to create organization:', orgError);
-          throw new Error(
-            orgError.response?.data?.message || 
-            'Failed to create organization. Please try again.'
-          );
+          console.error('Error response data:', orgError.response?.data);
+          console.error('Error status:', orgError.response?.status);
+            // Enhanced error handling with detailed validation messages
+          let errorMessage = 'Failed to create organization. Please try again.';
+          let errorDetails = null;
+          
+          if (orgError.response?.data?.message) {
+            errorMessage = orgError.response.data.message;
+          }
+          
+          // If it's a validation error, show detailed errors using our ValidationError component
+          if (orgError.response?.data?.errors) {
+            console.error('Validation errors:', orgError.response.data.errors);
+            
+            errorDetails = {
+              message: orgError.response.data.message,
+              summary: orgError.response.data.summary,
+              errors: orgError.response.data.errors,
+              help: orgError.response.data.help
+            };
+            
+            setValidationError(errorDetails);
+            return; // Don't throw, just set the validation error state
+          }
+          
+          throw new Error(errorMessage);
         }
       }
 
@@ -201,10 +235,15 @@ const RegisterForm: React.FC = () => {
 
     loadCustomRoles();
   }, [watch('organizationId'), watch('createNewOrg')]);
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {error && (
+      {/* Enhanced Validation Error Display */}
+      {validationError && (
+        <ValidationError error={validationError} />
+      )}
+      
+      {/* Legacy error display for AuthContext errors */}
+      {error && !validationError && (
         <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
           {error}
         </div>
@@ -216,17 +255,10 @@ const RegisterForm: React.FC = () => {
           <div className="flex-shrink-0">
             <User className="mt-5 h-5 w-5 text-gray-400" />
           </div>
-          <div className="flex-1">
-            <Input
+          <div className="flex-1">            <Input
               label="Full Name"
               type="text"
-              {...register('name', { 
-                required: 'Name is required',
-                minLength: {
-                  value: 2,
-                  message: 'Name must be at least 2 characters'
-                }
-              })}
+              {...register('name', getReactHookFormRules('name'))}
               error={errors.name?.message}
             />
           </div>
@@ -237,17 +269,10 @@ const RegisterForm: React.FC = () => {
           <div className="flex-shrink-0">
             <Mail className="mt-5 h-5 w-5 text-gray-400" />
           </div>
-          <div className="flex-1">
-            <Input
+          <div className="flex-1">            <Input
               label="Email Address"
               type="email"
-              {...register('email', { 
-                required: 'Email is required',
-                pattern: {
-                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: 'Invalid email address'
-                }
-              })}
+              {...register('email', getReactHookFormRules('email'))}
               error={errors.email?.message}
             />
           </div>
@@ -258,17 +283,10 @@ const RegisterForm: React.FC = () => {
           <div className="flex-shrink-0">
             <Lock className="mt-5 h-5 w-5 text-gray-400" />
           </div>
-          <div className="flex-1 relative">
-            <Input
+          <div className="flex-1 relative">            <Input
               label="Password"
               type={showPassword ? 'text' : 'password'}
-              {...register('password', { 
-                required: 'Password is required',
-                minLength: {
-                  value: 6,
-                  message: 'Password must be at least 6 characters'
-                }
-              })}
+              {...register('password', getReactHookFormRules('password'))}
               error={errors.password?.message}
               className="pr-12"
             />

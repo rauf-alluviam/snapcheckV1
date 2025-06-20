@@ -13,7 +13,7 @@ SnapCheck is a sophisticated, enterprise-grade inspection management system buil
 - **Database**: MongoDB with Mongoose ODM for scalable data management
 - **Authentication**: JWT-based secure authentication with role-based permissions
 - **File Storage**: AWS S3 integration for media attachments
-- **Automation**: Built-in auto-approval and batch processing systems
+- **Automation**: Built-in auto-approval systems for routine inspections
 
 ## 🎯 Core Features Overview
 
@@ -22,7 +22,7 @@ SnapCheck is a sophisticated, enterprise-grade inspection management system buil
 - 🔍 **Advanced Inspection Management** - Complete inspection lifecycle management
 - 🔄 **Dynamic Workflow Engine** - Customizable inspection workflows with media requirements
 - ⚡ **Auto-Approval System** - Intelligent automation with configurable rules
-- 📦 **Batch Processing** - Bulk approvals for routine inspections
+- 🤖 **Auto-Approval** - Smart automation for routine inspections
 - 📈 **Comprehensive Reporting** - PDF generation and CSV export capabilities
 - 📱 **Responsive Interface** - Mobile-friendly design for field inspections
 - 👥 **Organization Management** - Multi-tenant system with custom roles
@@ -106,12 +106,6 @@ SnapCheck is a sophisticated, enterprise-grade inspection management system buil
 - View approval status of other assigned approvers
 - Add detailed remarks and feedback for inspection improvements
 - Track approval timelines and deadlines
-
-**Batch Processing:**
-- Access batch approval interface for routine inspections
-- Approve multiple inspections simultaneously with grouped actions
-- Review batch statistics and approval summaries
-- Handle bulk rejection with centralized comment management
 
 **Auto-Approval Oversight:**
 - Monitor auto-approved inspections for quality assurance

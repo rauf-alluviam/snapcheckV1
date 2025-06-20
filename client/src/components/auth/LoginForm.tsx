@@ -5,6 +5,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { userSchemas } from '../../validation/schemas';
+import { useValidation } from '../../validation/hooks';
 
 interface LoginFormInputs {
   email: string;
@@ -22,11 +24,17 @@ const LoginForm: React.FC = () => {
   const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   
-  const { 
+  // Use our validation system
+  const validation = useValidation(userSchemas.login);
+    const { 
     register, 
     handleSubmit, 
-    formState: { errors } 
+    formState: { errors },
+    watch
   } = useForm<LoginFormInputs>();
+
+  // Watch form values for real-time validation
+  const formData = watch();
 
   // Get the previous path from location state, if available
   const locationState = location.state as LocationState;
@@ -39,7 +47,20 @@ const LoginForm: React.FC = () => {
     }
   }, [isAuthenticated, navigate, from]);
 
+  // Real-time validation on form changes
+  useEffect(() => {
+    if (formData.email || formData.password) {
+      validation.validate(formData);
+    }
+  }, [formData, validation]);
+
   const onSubmit = async (data: LoginFormInputs) => {
+    // Validate before submission
+    const validationResult = validation.validate(data);
+    if (!validationResult.success) {
+      return;
+    }
+
     try {
       await login(data.email, data.password);
       // Navigation will happen in useEffect when isAuthenticated becomes true
@@ -66,8 +87,7 @@ const LoginForm: React.FC = () => {
           <div className="flex-shrink-0">
             <Mail className="mt-5 h-5 w-5 text-gray-400" />
           </div>
-          <div className="flex-1">
-            <Input
+          <div className="flex-1">            <Input
               label="Email Address"
               type="email"
               {...register('email', { 
@@ -77,7 +97,7 @@ const LoginForm: React.FC = () => {
                   message: 'Invalid email address'
                 }
               })}
-              error={errors.email?.message}
+              error={errors.email?.message || validation.errors.email}
             />
           </div>
         </div>
@@ -98,7 +118,7 @@ const LoginForm: React.FC = () => {
                   message: 'Password must be at least 6 characters'
                 }
               })}
-              error={errors.password?.message}
+              error={errors.password?.message || validation.errors.password}
               className="pr-12" // Add padding to make room for the button
             />
             {/* Show/Hide Password Button */}

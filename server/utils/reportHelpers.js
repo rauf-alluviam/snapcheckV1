@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import { ReportValidationError } from './errors.js';
+import { formatDateForCSV, formatDateTimeForCSV } from './dateUtils.js';
 
 export const validateDateRange = (startDate, endDate) => {
   if (!startDate || !endDate) {
@@ -23,8 +24,8 @@ export const transformInspectionData = (inspection) => ({
   Status: inspection.status.toUpperCase(),
   Inspector: inspection.assignedTo.name,
   Approver: inspection.approverId.name,
-  InspectionDate: new Date(inspection.inspectionDate).toLocaleDateString(),
-  CreatedAt: new Date(inspection.createdAt).toLocaleString()
+  InspectionDate: formatDateForCSV(inspection.inspectionDate),
+  CreatedAt: formatDateTimeForCSV(inspection.createdAt)
 });
 
 export const calculateInspectorStats = (inspections) => {

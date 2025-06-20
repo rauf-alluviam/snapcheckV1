@@ -8,9 +8,8 @@ const router = express.Router();
 // @route   GET api/dashboard/stats
 // @desc    Get dashboard statistics
 // @access  Private
-router.get('/stats', auth, async (req, res) => {
-  try {
-    const { organizationId, role, _id: userId } = req.user;
+router.get('/stats', auth, async (req, res) => {  try {
+    const { organizationId, role, id: userId } = req.user;
     const sixMonthsAgo = moment().subtract(6, 'months').startOf('month');
     
     // Base query for organization
@@ -18,12 +17,14 @@ router.get('/stats', auth, async (req, res) => {
     
     // Modify query based on user role
     if (role === 'approver') {
-      baseQuery.approverId = userId;
+      // Handle both legacy approverId field and new approvers array
+      baseQuery.$or = [
+        { approverId: userId },
+        { 'approvers.userId': userId }
+      ];
     } else if (role === 'inspector') {
       baseQuery.assignedTo = userId;
-    }
-
-    // Get all relevant inspections
+    }    // Get all relevant inspections
     const inspections = await Inspection.find(baseQuery);
 
     // Calculate summary statistics

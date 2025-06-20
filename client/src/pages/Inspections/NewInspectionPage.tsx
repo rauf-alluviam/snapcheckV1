@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import MultiSelect from '../../components/ui/MultiSelect';
 import Switch from '../../components/ui/Switch';
@@ -11,6 +10,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { CheckCircle } from 'lucide-react';
 import api from '../../utils/api';
 import FileUpload from '../../components/ui/FileUpload';
+import { inspectionSchemas } from '../../validation/schemas';
+import { useValidation } from '../../validation/hooks';
+import { handleApiValidationErrors, getErrorMessage } from '../../validation/utils';
+import ValidatedInput from '../../components/ui/ValidatedInput';
+import { getCurrentDateString, toISODateTime } from '../../utils/dateUtils';
 
 interface User {
   _id: string;
@@ -44,7 +48,8 @@ interface FormValues {
   }[];
 }
 
-const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
+const NewInspectionPage: React.FC = () => {  
+  const navigate = useNavigate();
   useAuth(); // Keep the auth context connection even if we don't use the state directly
   
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
@@ -53,15 +58,17 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
   const [approvers, setApprovers] = useState<{ value: string; label: string; }[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  // Use validation for inspection creation
+  const validation = useValidation(inspectionSchemas.create);
 
   // Fetch available workflows and approvers
   useEffect(() => {
-    const fetchData = async () => {
-      try {
+    const fetchData = async () => {      try {
         setLoading(true);
         const [workflowsResponse, approversResponse] = await Promise.all([
           api.get('/api/workflows'),
-          api.get('/api/users', { params: { role: 'approver' } })
+          api.get('/api/users/approvers')
         ]);
 
         if (Array.isArray(workflowsResponse.data)) {
@@ -100,10 +107,9 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
     control,
     watch,
     setValue,
-    formState: { errors } 
-  } = useForm<FormValues>({
+    formState: { errors }   } = useForm<FormValues>({
     defaultValues: {
-      inspectionDate: new Date().toISOString().split('T')[0],
+      inspectionDate: getCurrentDateString(),
       steps: [],
       approverIds: [],
       autoApprove: false // Default to false
@@ -166,13 +172,11 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
   }, [fields, selectedWorkflow]);
   
   const [submissionSuccess, setSubmissionSuccess] = useState<string | null>(null);
-  
-  const onSubmit = async (data: FormValues) => {
+    const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
     setSubmissionSuccess(null);
     setErrorMessage(null);
-    
-    try {
+      try {
       console.log('Submitting inspection with data:', data);
       
       // Validate all required fields
@@ -203,14 +207,12 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
       
       // Get auth token
       const token = localStorage.getItem('token');
-      if (!token) throw new Error('Authentication token not found');
-      
-      // Prepare the inspection data with stepTitle included
+      if (!token) throw new Error('Authentication token not found');      // Prepare the inspection data for both validation and API submission
       const inspectionData = {
         workflowId: data.workflowId,
         approverId: data.approverId, // Primary approver (for backward compatibility)
         approverIds: uniqueApproverIds, // All approvers including the primary one
-        inspectionDate: data.inspectionDate,
+        inspectionDate: toISODateTime(data.inspectionDate), // Convert to consistent ISO format
         filledSteps: data.steps.map(step => {
           // Find the corresponding step in the workflow to get its title
           const workflowStep = selectedWorkflow?.steps.find(ws => ws._id === step.stepId);
@@ -224,6 +226,14 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
         }),
         autoApprove: data.autoApprove // Include autoApprove field for daily inspections
       };
+      
+      // Validate with our schema
+      const validationResult = validation.validate(inspectionData);
+      if (!validationResult.success) {
+        setErrorMessage('Please check the form for validation errors');
+        setIsSubmitting(false);
+        return;
+      }
       
       console.log('Sending inspection data:', JSON.stringify(inspectionData));
       
@@ -261,15 +271,24 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
       } else {
         setSubmissionSuccess('Inspection was submitted successfully!');
       }
-      
-      // Navigate after a short delay to allow the user to see the success message
+        // Navigate after a short delay to allow the user to see the success message
       setTimeout(() => {
         navigate('/inspections');
       }, 2000);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting inspection:', error);
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to submit inspection');
+      
+      // Handle validation errors from API
+      const hasValidationErrors = handleApiValidationErrors(error, (field: string, message: string) => {
+        validation.setFieldError(field, message);
+      });
+      
+      if (!hasValidationErrors) {
+        const errorMessage = getErrorMessage(error);
+        setErrorMessage(errorMessage);
+      }
+      
       setIsSubmitting(false);
     }
   };
@@ -341,12 +360,13 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
                         {...register('approverIds')}
                       />
                     </div>
-                    
-                    <Input
+                      <ValidatedInput
                       label="Inspection Date"
                       type="date"
                       {...register('inspectionDate', { required: 'Date is required' })}
                       error={errors.inspectionDate?.message}
+                      validationErrors={validation.errors.inspectionDate ? [validation.errors.inspectionDate] : []}
+                      showValidation={!validation.errors.inspectionDate}
                     />
 
                     {selectedWorkflow?.isRoutineInspection && (

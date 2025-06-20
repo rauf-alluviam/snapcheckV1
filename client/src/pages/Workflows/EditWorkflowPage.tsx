@@ -4,11 +4,15 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
-import Select from '../../components/ui/Select';
+import CategorySelect from '../../components/ui/CategorySelect';
 import { useAuth } from '../../contexts/AuthContext';
 import { Plus, Trash2, MoveUp, MoveDown, Info } from 'lucide-react';
 import api from '../../utils/api';
 import { Workflow } from '../../types';
+import { workflowSchemas } from '../../validation/schemas';
+import { useValidation } from '../../validation/hooks';
+import { handleApiValidationErrors, getErrorMessage } from '../../validation/utils';
+import ValidationError from '../../components/ui/ValidationError';
 
 interface Step {
   _id?: string;
@@ -24,13 +28,6 @@ interface FormValues {
   steps: Step[];
 }
 
-const categoryOptions = [
-  { value: 'Cargo', label: 'Cargo' },
-  { value: 'Facility', label: 'Facility' },
-  { value: 'Vehicle', label: 'Vehicle' },
-  { value: 'Custom', label: 'Custom' }
-];
-
 const EditWorkflowPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -42,17 +39,23 @@ const EditWorkflowPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
+  const [validationError, setValidationError] = useState<any>(null);
+  
+  // Use enhanced validation system
+  const validation = useValidation(workflowSchemas.update);
   
   const { 
     register, 
     handleSubmit, 
     control,
+    watch,
+    setValue,
     formState: { errors },
     reset
   } = useForm<FormValues>({
     defaultValues: {
       name: '',
-      category: 'Custom',
+      category: '',
       description: '',
       steps: [{ title: '', instructions: '', mediaRequired: false }]
     }
@@ -62,6 +65,16 @@ const EditWorkflowPage: React.FC = () => {
     control,
     name: 'steps'
   });
+
+  // Watch form values for real-time validation
+  const formData = watch();
+
+  // Real-time validation on form changes
+  useEffect(() => {
+    if (formData.name || formData.category || formData.description || (formData.steps && formData.steps.length > 0)) {
+      validation.validate(formData);
+    }
+  }, [formData, validation]);
 
   // Check if current user can edit this workflow
   const canEdit = isAdmin || (workflow && workflow.createdBy === user?._id);
@@ -102,6 +115,16 @@ const EditWorkflowPage: React.FC = () => {
   }, [id, reset]);
   
   const onSubmit = async (data: FormValues) => {
+    // Clear previous validation errors
+    setValidationError(null);
+    
+    // Validate before submission
+    const validationResult = validation.validate(data);
+    if (!validationResult.success) {
+      setValidationError(validationResult);
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
     
@@ -114,7 +137,16 @@ const EditWorkflowPage: React.FC = () => {
       navigate(`/workflows/${id}`);
     } catch (err: any) {
       console.error('Error updating workflow:', err);
-      setError(err.response?.data?.message || 'Failed to update workflow. Please try again.');
+      
+      // Handle validation errors from API
+      const hasValidationErrors = handleApiValidationErrors(err, (field: string, message: string) => {
+        validation.setFieldError(field, message);
+      });
+      
+      if (!hasValidationErrors) {
+        const errorMessage = getErrorMessage(err);
+        setError(errorMessage);
+      }
       setIsSubmitting(false);
     }
   };
@@ -171,7 +203,6 @@ const EditWorkflowPage: React.FC = () => {
       </div>
     );
   }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
@@ -181,7 +212,12 @@ const EditWorkflowPage: React.FC = () => {
         </div>
       </div>
       
-      {error && (
+      {/* Enhanced Validation Error Display */}
+      {validationError && (
+        <ValidationError error={validationError} />
+      )}
+      
+      {error && !validationError && (
         <div className="bg-red-50 border-l-4 border-red-500 p-4">
           <div className="flex">
             <div>
@@ -210,12 +246,12 @@ const EditWorkflowPage: React.FC = () => {
                   })}
                   error={errors.name?.message}
                 />
-                
-                <Select
+                  <CategorySelect
                   label="Category"
-                  options={categoryOptions}
-                  {...register('category', { required: 'Category is required' })}
+                  value={watch('category')}
+                  onChange={(value) => setValue('category', value)}
                   error={errors.category?.message}
+                  required
                 />
               </div>
               

@@ -9,6 +9,11 @@ import Select from '../../components/ui/Select';
 import { FilterParams } from '../../types';
 import api from '../../utils/api';
 import { Plus, Search, Filter, User, Mail, Building, AlertCircle, UserCog, Trash2, Loader, Lock } from 'lucide-react';
+import { userSchemas } from '../../validation/schemas';
+import { useValidation } from '../../validation/hooks';
+import { handleApiValidationErrors, getErrorMessage } from '../../validation/utils';
+import ValidatedInput from '../../components/ui/ValidatedInput';
+import ValidationMessage from '../../components/ui/ValidationMessage';
 
 // Define user interface
 interface UserData {
@@ -131,8 +136,7 @@ const UsersPage: React.FC = () => {
 
     fetchUsers();
   }, []);
-  
-  const [newUserFormData, setNewUserFormData] = useState<NewUserFormData>({
+    const [newUserFormData, setNewUserFormData] = useState<NewUserFormData>({
     name: '',
     email: '',
     password: '',
@@ -140,7 +144,8 @@ const UsersPage: React.FC = () => {
     organizationId: '1'
   });
   
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  // Use validation system
+  const validation = useValidation(userSchemas.register);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -208,40 +213,17 @@ const UsersPage: React.FC = () => {
     
     return true;
   });
+    // Real-time validation when form data changes
+  useEffect(() => {
+    if (Object.keys(newUserFormData).length > 0) {
+      validation.validate(newUserFormData);
+    }
+  }, [newUserFormData, validation]);
   
-  const validateForm = (data: NewUserFormData, isEdit: boolean = false): boolean => {
-    const errors: Record<string, string> = {};
-    
-    if (!data.name.trim()) {
-      errors.name = 'Name is required';
-    }
-    
-    if (!data.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(data.email)) {
-      errors.email = 'Invalid email address';
-    }
-    
-    // Only validate password for new users or if a password is provided for edits
-    if (!isEdit && !data.password.trim()) {
-      errors.password = 'Password is required';
-    } else if (data.password.trim() && data.password.length < 6) {
-      errors.password = 'Password must be at least 6 characters';
-    }
-    
-    if (!data.role) {
-      errors.role = 'Role is required';
-    }
-    
-    if (!data.organizationId) {
-      errors.organizationId = 'Organization is required';
-    }
-    
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-    const handleNewUserSubmit = async () => {
-    if (!validateForm(newUserFormData)) {
+  const handleNewUserSubmit = async () => {
+    // Validate before submission
+    const validationResult = validation.validate(newUserFormData);
+    if (!validationResult.success) {
       return;
     }
     
@@ -274,14 +256,22 @@ const UsersPage: React.FC = () => {
         organizationId: ''
       });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Failed to create user';
-      setFormErrors(prev => ({ ...prev, submit: errorMessage }));
+      // Handle validation errors from API
+      const hasValidationErrors = handleApiValidationErrors(error, (field: string, message: string) => {
+        validation.setFieldError(field, message);
+      });
+      
+      if (!hasValidationErrors) {
+        const errorMessage = getErrorMessage(error);
+        validation.setFieldError('submit', errorMessage);
+      }
     } finally {
       setIsSubmitting(false);
     }
-  };
-    const handleEditUserSubmit = async () => {
-    if (!validateForm(newUserFormData, true)) {
+  };  const handleEditUserSubmit = async () => {
+    // Validate before submission
+    const validationResult = validation.validate(newUserFormData);
+    if (!validationResult.success) {
       return;
     }
     
@@ -308,8 +298,15 @@ const UsersPage: React.FC = () => {
       
       setIsEditUserModalOpen(false);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Failed to update user';
-      setFormErrors(prev => ({ ...prev, submit: errorMessage }));
+      // Handle validation errors from API
+      const hasValidationErrors = handleApiValidationErrors(error, (field: string, message: string) => {
+        validation.setFieldError(field, message);
+      });
+      
+      if (!hasValidationErrors) {
+        const errorMessage = getErrorMessage(error);
+        validation.setFieldError('submit', errorMessage);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -330,8 +327,7 @@ const UsersPage: React.FC = () => {
   const handleDeleteUser = (user: UserData) => {
     setSelectedUser(user);
     setIsDeleteUserModalOpen(true);
-  };
-    const confirmDeleteUser = async () => {
+  };  const confirmDeleteUser = async () => {
     if (!selectedUser) return;
     
     setIsSubmitting(true);
@@ -343,8 +339,8 @@ const UsersPage: React.FC = () => {
       setUsers(prev => prev.filter(user => user._id !== selectedUser._id));
       setIsDeleteUserModalOpen(false);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Failed to delete user';
-      setFormErrors(prev => ({ ...prev, submit: errorMessage }));
+      const errorMessage = getErrorMessage(error);
+      validation.setFieldError('submit', errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -578,36 +574,42 @@ const UsersPage: React.FC = () => {
         onClose={() => setIsNewUserModalOpen(false)}
         title="Create New User"
         size="md"
-      >
-        <div className="space-y-4">
+      >        <div className="space-y-4">
+          {validation.errors.submit && (
+            <ValidationMessage 
+              type="error" 
+              message={validation.errors.submit} 
+            />
+          )}
+          
           <div className="grid grid-cols-1 gap-4">
-            <Input
+            <ValidatedInput
               label="Full Name"
               placeholder="Enter full name"
               value={newUserFormData.name}
               onChange={(e) => setNewUserFormData({ ...newUserFormData, name: e.target.value })}
-              error={formErrors.name}
-              leftAddon={<User className="ml-3 h-5 w-5 text-gray-400" />}
+              error={validation.errors.name}
+              leftIcon={<User className="h-5 w-5 text-gray-400" />}
             />
             
-            <Input
+            <ValidatedInput
               label="Email Address"
               type="email"
               placeholder="Enter email address"
               value={newUserFormData.email}
               onChange={(e) => setNewUserFormData({ ...newUserFormData, email: e.target.value })}
-              error={formErrors.email}
-              leftAddon={<Mail className="ml-3 h-5 w-5 text-gray-400" />}
+              error={validation.errors.email}
+              leftIcon={<Mail className="h-5 w-5 text-gray-400" />}
             />
             
-            <Input
+            <ValidatedInput
               label="Password"
               type="password"
               placeholder="Enter password"
               value={newUserFormData.password}
               onChange={(e) => setNewUserFormData({ ...newUserFormData, password: e.target.value })}
-              error={formErrors.password}
-              leftAddon={<Lock className="ml-3 h-5 w-5 text-gray-400" />}
+              error={validation.errors.password}
+              leftIcon={<Lock className="h-5 w-5 text-gray-400" />}
             />
             
             <Select
@@ -619,7 +621,7 @@ const UsersPage: React.FC = () => {
               ]}
               value={newUserFormData.role}
               onChange={(e) => setNewUserFormData({ ...newUserFormData, role: e.target.value })}
-              error={formErrors.role}
+              error={validation.errors.role}
             />
             
             <Select
@@ -627,7 +629,7 @@ const UsersPage: React.FC = () => {
               options={organizationOptions}
               value={newUserFormData.organizationId}
               onChange={(e) => setNewUserFormData({ ...newUserFormData, organizationId: e.target.value })}
-              error={formErrors.organizationId}
+              error={validation.errors.organizationId}
             />
           </div>
           
@@ -655,36 +657,42 @@ const UsersPage: React.FC = () => {
         onClose={() => setIsEditUserModalOpen(false)}
         title={`Edit User: ${selectedUser?.name}`}
         size="md"
-      >
-        <div className="space-y-4">
+      >        <div className="space-y-4">
+          {validation.errors.submit && (
+            <ValidationMessage 
+              type="error" 
+              message={validation.errors.submit} 
+            />
+          )}
+          
           <div className="grid grid-cols-1 gap-4">
-            <Input
+            <ValidatedInput
               label="Full Name"
               placeholder="Enter full name"
               value={newUserFormData.name}
               onChange={(e) => setNewUserFormData({ ...newUserFormData, name: e.target.value })}
-              error={formErrors.name}
-              leftAddon={<User className="ml-3 h-5 w-5 text-gray-400" />}
+              error={validation.errors.name}
+              leftIcon={<User className="h-5 w-5 text-gray-400" />}
             />
             
-            <Input
+            <ValidatedInput
               label="Email Address"
               type="email"
               placeholder="Enter email address"
               value={newUserFormData.email}
               onChange={(e) => setNewUserFormData({ ...newUserFormData, email: e.target.value })}
-              error={formErrors.email}
-              leftAddon={<Mail className="ml-3 h-5 w-5 text-gray-400" />}
+              error={validation.errors.email}
+              leftIcon={<Mail className="h-5 w-5 text-gray-400" />}
             />
             
-            <Input
+            <ValidatedInput
               label="Password (leave blank to keep current)"
               type="password"
               placeholder="Enter new password or leave blank"
               value={newUserFormData.password}
               onChange={(e) => setNewUserFormData({ ...newUserFormData, password: e.target.value })}
-              error={formErrors.password}
-              leftAddon={<Lock className="ml-3 h-5 w-5 text-gray-400" />}
+              error={validation.errors.password}
+              leftIcon={<Lock className="h-5 w-5 text-gray-400" />}
             />
             
             <Select
@@ -696,7 +704,7 @@ const UsersPage: React.FC = () => {
               ]}
               value={newUserFormData.role}
               onChange={(e) => setNewUserFormData({ ...newUserFormData, role: e.target.value })}
-              error={formErrors.role}
+              error={validation.errors.role}
             />
             
             <Select
@@ -704,7 +712,7 @@ const UsersPage: React.FC = () => {
               options={organizationOptions}
               value={newUserFormData.organizationId}
               onChange={(e) => setNewUserFormData({ ...newUserFormData, organizationId: e.target.value })}
-              error={formErrors.organizationId}
+              error={validation.errors.organizationId}
             />
           </div>
           

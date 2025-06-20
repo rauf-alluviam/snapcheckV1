@@ -8,13 +8,20 @@ import PDFDocument from 'pdfkit';
 import { Parser } from 'json2csv';
 import { processAutoApprovals } from '../utils/autoApproval.js';
 import { sendNotification } from '../utils/notifications.js';
+import { formatDateForCSV, formatDateTimeForCSV, formatDateForPDF, formatDateTimeForPDF } from '../utils/dateUtils.js';
+import { 
+  validateInspection,
+  validateQuery,
+  validateObjectId,
+  validateDateRange
+} from '../validation/middleware.js';
 
 const router = express.Router();
 
 // @route   GET api/inspections
 // @desc    Get all inspections for the user's organization with filtering
 // @access  Private
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, validateQuery.inspectionFilters, validateDateRange, async (req, res) => {
   try {
     const {
       startDate,
@@ -75,16 +82,28 @@ router.get('/', auth, async (req, res) => {
     res.json(transformedInspections);
   } catch (err) {
     console.error('Error fetching inspections:', err.message);
+    res.status(500).json({ message: 'Server error' });  }
+});
+
+// @route   GET api/inspections/categories
+// @desc    Get all unique inspection categories in the organization
+// @access  Private
+router.get('/categories', auth, async (req, res) => {
+  try {
+    const uniqueCategories = await Inspection.distinct('category', { 
+      organizationId: req.user.organizationId 
+    });
+    res.json(uniqueCategories);
+  } catch (err) {
+    console.error('Error fetching inspection categories:', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// =====================================
-
 // @route   GET api/inspections/:id
 // @desc    Get inspection by ID
 // @access  Private
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id', auth, validateObjectId(), async (req, res) => {
   try {
     const inspection = await Inspection.findById(req.params.id)
       .populate('assignedTo', 'name')
@@ -141,7 +160,7 @@ router.get('/:id', auth, async (req, res) => {
 // @route   POST api/inspections
 // @desc    Create a new inspection
 // @access  Private
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, validateInspection.create, async (req, res) => {
   try {
     const { 
       workflowId, 
@@ -151,10 +170,7 @@ router.post('/', auth, async (req, res) => {
       inspectionDate
     } = req.body;
     
-    // Validate input
-    if (!workflowId || !approverId || !inspectionDate || !filledSteps || !Array.isArray(filledSteps)) {
-      return res.status(400).json({ message: 'All fields are required and filledSteps must be an array' });
-    }
+    // Input is already validated by middleware
     
     // Get workflow details
     const workflow = await Workflow.findById(workflowId);
@@ -262,9 +278,9 @@ router.post('/', auth, async (req, res) => {
           ...inspection.toObject(), 
           autoApproved: true,
           message: 'Inspection was automatically approved based on predefined rules'
-        });      }
-      
-      // For routine inspections that aren't auto-approved, they remain in normal pending status
+        });
+      }
+        // For routine inspections that aren't auto-approved, they remain in normal pending status
     }
     
     res.json(inspection);
@@ -277,7 +293,7 @@ router.post('/', auth, async (req, res) => {
 // @route   PUT api/inspections/:id/approve
 // @desc    Approve an inspection
 // @access  Private/AdminOrApprover
-router.put('/:id/approve', isAdminOrApprover, async (req, res) => {
+router.put('/:id/approve', isAdminOrApprover, validateObjectId(), validateInspection.approve, async (req, res) => {
   try {
     const { remarks } = req.body;
     const inspection = await Inspection.findById(req.params.id);
@@ -359,13 +375,11 @@ router.put('/:id/approve', isAdminOrApprover, async (req, res) => {
 // @route   PUT api/inspections/:id/reject
 // @desc    Reject an inspection
 // @access  Private/AdminOrApprover
-router.put('/:id/reject', isAdminOrApprover, async (req, res) => {
+router.put('/:id/reject', isAdminOrApprover, validateObjectId(), validateInspection.reject, async (req, res) => {
   try {
     const { remarks } = req.body;
     
-    if (!remarks) {
-      return res.status(400).json({ message: 'Rejection remarks are required' });
-    }
+    // Input is already validated by middleware
     
     const inspection = await Inspection.findById(req.params.id);
     
@@ -475,7 +489,7 @@ router.get('/:id/report', auth, async (req, res) => {
     doc.fontSize(12).text(`Type: ${inspection.inspectionType}`);
     doc.fontSize(12).text(`Category: ${inspection.category}`);
     doc.fontSize(12).text(`Status: ${inspection.status.toUpperCase()}`);
-    doc.fontSize(12).text(`Date: ${new Date(inspection.inspectionDate).toLocaleDateString()}`);
+    doc.fontSize(12).text(`Date: ${formatDateForPDF(inspection.inspectionDate)}`);
     doc.moveDown();      // Participants
     doc.fontSize(14).text('Participants', { underline: true });
     doc.moveDown(0.5);
@@ -492,9 +506,8 @@ router.get('/:id/report', auth, async (req, res) => {
         doc.fontSize(10).text(`- ${userName}: ${status}`);
         if (approver.remarks) {
           doc.fontSize(9).text(`  Remarks: ${approver.remarks}`, { indent: 10 });
-        }
-        if (approver.actionDate) {
-          doc.fontSize(9).text(`  Date: ${new Date(approver.actionDate).toLocaleString()}`, { indent: 10 });
+        }        if (approver.actionDate) {
+          doc.fontSize(9).text(`  Date: ${formatDateTimeForPDF(approver.actionDate)}`, { indent: 10 });
         }
       });
     }
@@ -516,7 +529,7 @@ router.get('/:id/report', auth, async (req, res) => {
         });
       }
       
-      doc.fontSize(8).text(`Completed on: ${new Date(step.timestamp).toLocaleString()}`);
+      doc.fontSize(8).text(`Completed on: ${formatDateTimeForPDF(step.timestamp)}`);
       doc.moveDown();
     });
     
@@ -589,8 +602,7 @@ router.get('/export/csv', auth, async (req, res) => {
     const inspections = await Inspection.find(filter)
       .sort({ inspectionDate: -1 })
       .populate('assignedTo', 'name')
-      .populate('approverId', 'name');
-      // Transform inspections for CSV export
+      .populate('approverId', 'name');      // Transform inspections for CSV export
     const transformedInspections = inspections.map(inspection => {
       return {
         ID: inspection._id,
@@ -600,8 +612,8 @@ router.get('/export/csv', auth, async (req, res) => {
         Status: inspection.status,
         Inspector: inspection.assignedTo?.name || 'Unknown User',
         Approver: inspection.approverId?.name || 'Unknown User',
-        InspectionDate: new Date(inspection.inspectionDate).toLocaleDateString(),
-        CreatedAt: new Date(inspection.createdAt).toLocaleString()
+        InspectionDate: formatDateForCSV(inspection.inspectionDate),
+        CreatedAt: formatDateTimeForCSV(inspection.createdAt)
       };
     });
     
@@ -613,10 +625,49 @@ router.get('/export/csv', auth, async (req, res) => {
     // Set response headers
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=inspections.csv');
-    
-    // Send CSV response
-    res.send(csv);  } catch (err) {
+      // Send CSV response    res.send(csv);
+  } catch (err) {
     console.error('Error exporting inspections as CSV:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   DELETE api/inspections/:id
+// @desc    Delete an inspection (Admin only)
+// @access  Private/Admin
+router.delete('/:id', auth, validateObjectId(), async (req, res) => {
+  try {
+    // Only admins can delete inspections
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Only admins can delete inspections.' });
+    }
+
+    const inspection = await Inspection.findById(req.params.id);
+    
+    if (!inspection) {
+      return res.status(404).json({ message: 'Inspection not found' });
+    }
+    
+    // Check if inspection belongs to user's organization
+    if (inspection.organizationId.toString() !== req.user.organizationId) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    // Delete the inspection
+    await Inspection.findByIdAndDelete(req.params.id);
+    
+    res.json({ 
+      message: 'Inspection deleted successfully',
+      deletedInspectionId: req.params.id 
+    });
+    
+  } catch (err) {
+    console.error('Error deleting inspection:', err.message);
+    
+    if (err.kind === 'ObjectId') {
+      return res.status(404).json({ message: 'Inspection not found' });
+    }
+    
     res.status(500).json({ message: 'Server error' });
   }
 });

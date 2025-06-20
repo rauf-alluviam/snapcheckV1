@@ -73,8 +73,7 @@ const Sidebar: React.FC = () => {
               <NavItem to="/users" icon={<Users size={20} />} label="Users Management" />
               <NavItem to="/settings" icon={<Settings size={20} />} label="System Settings" />
             </>
-          )}
-            {/* Approver-specific navigation items */}
+          )}          {/* Approver-specific navigation items */}
           {isApprover && (
             <>
               <NavItem to="/approvals" icon={<UserCheck size={20} />} label="Approvals" />
