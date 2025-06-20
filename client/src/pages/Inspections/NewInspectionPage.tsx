@@ -8,7 +8,7 @@ import Select from '../../components/ui/Select';
 import MultiSelect from '../../components/ui/MultiSelect';
 import Switch from '../../components/ui/Switch';
 import { useAuth } from '../../contexts/AuthContext';
-import { Camera, CheckCircle } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 import api from '../../utils/api';
 import FileUpload from '../../components/ui/FileUpload';
 
@@ -27,10 +27,8 @@ interface Workflow {
     title: string;
     instructions: string;
     mediaRequired: boolean;
-  }[];
-  isRoutineInspection?: boolean;
+  }[];  isRoutineInspection?: boolean;
   autoApprovalEnabled?: boolean;
-  bulkApprovalEnabled?: boolean;
 }
 
 interface FormValues {
@@ -117,25 +115,55 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
     name: 'steps'
   });
   
-  const watchedWorkflowId = watch('workflowId');
-  
-  // Update steps when workflow changes
+  const watchedWorkflowId = watch('workflowId');  // Update steps when workflow changes
   useEffect(() => {
-    if (watchedWorkflowId) {
+    console.log('Effect triggered:', { 
+      watchedWorkflowId, 
+      workflowsCount: workflows.length,
+      selectedWorkflow: selectedWorkflow?.name 
+    });
+    
+    if (watchedWorkflowId && workflows.length > 0) {
       const workflow = workflows.find(w => w._id === watchedWorkflowId);
-      setSelectedWorkflow(workflow || null);
+      console.log('Found workflow:', workflow);
       
       if (workflow) {
-        const stepsFields = workflow.steps.map(step => ({
-          stepId: step._id,
-          responseText: '',
-          mediaUrls: []
-        }));
+        console.log('Workflow steps:', workflow.steps);
+        setSelectedWorkflow(workflow);
         
-        replace(stepsFields);
+        if (workflow.steps && Array.isArray(workflow.steps) && workflow.steps.length > 0) {
+          const stepsFields = workflow.steps.map(step => ({
+            stepId: step._id,
+            responseText: '',
+            mediaUrls: []
+          }));
+          
+          console.log('Replacing fields with:', stepsFields);
+          replace(stepsFields);
+        } else {
+          console.warn('Workflow has no valid steps:', workflow.steps);
+          replace([]);
+        }
+      } else {
+        console.warn('Workflow not found for ID:', watchedWorkflowId);
+        setSelectedWorkflow(null);
+        replace([]);
       }
+    } else {
+      console.log('Conditions not met:', { 
+        hasWorkflowId: !!watchedWorkflowId, 
+        workflowsLoaded: workflows.length > 0 
+      });
+      setSelectedWorkflow(null);
+      replace([]);
     }
   }, [watchedWorkflowId, replace, workflows]);
+  
+  // Debug effect to log fields changes
+  useEffect(() => {
+    console.log('Fields array updated:', fields);
+    console.log('Selected workflow:', selectedWorkflow);
+  }, [fields, selectedWorkflow]);
   
   const [submissionSuccess, setSubmissionSuccess] = useState<string | null>(null);
   
@@ -227,12 +255,9 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
       
       const responseData = await response.json();
       console.log('Inspection submitted successfully:', responseData);
-      
-      // Check if the inspection was auto-approved
+        // Check if the inspection was auto-approved
       if (responseData.autoApproved) {
         setSubmissionSuccess('Inspection was submitted and automatically approved!');
-      } else if (responseData.status === 'pending-bulk') {
-        setSubmissionSuccess('Inspection was submitted and added to a batch for bulk approval.');
       } else {
         setSubmissionSuccess('Inspection was submitted successfully!');
       }
@@ -344,19 +369,31 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
                 )}
               </div>
             </CardContent>
-          </Card>
-          
-          {selectedWorkflow && (
+          </Card>          {selectedWorkflow && (
             <Card>
               <CardHeader>
                 <CardTitle>Workflow Steps</CardTitle>
                 <p className="text-sm text-gray-500">{selectedWorkflow.description}</p>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-gray-200">
-                  {fields.map((field, index) => {
-                    const step = selectedWorkflow.steps.find(s => s._id === field.stepId);
-                    if (!step) return null;
+              </CardHeader>              <CardContent className="p-0">
+                {fields.length === 0 ? (
+                  <div className="p-6 text-center text-gray-500">
+                    <p>No workflow steps to display</p>
+                    <div className="mt-2 text-sm">
+                      <p>Selected workflow: {selectedWorkflow?.name || 'None'}</p>
+                      <p>Workflow has {selectedWorkflow?.steps?.length || 0} steps</p>
+                      <p>Form fields count: {fields.length}</p>
+                      <p>Debug: {JSON.stringify({ 
+                        hasWorkflow: !!selectedWorkflow, 
+                        stepsCount: selectedWorkflow?.steps?.length,
+                        fieldsCount: fields.length 
+                      })}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-200">
+                    {fields.map((field, index) => {
+                      const step = selectedWorkflow.steps.find(s => s._id === field.stepId);
+                      if (!step) return null;
                     
                     return (
                       <div key={field.id} className="p-6">
@@ -453,10 +490,10 @@ const NewInspectionPage: React.FC = () => {  const navigate = useNavigate();
                             </div>
                           )}
                         </div>
-                      </div>
-                    );
+                      </div>                    );
                   })}
-                </div>
+                  </div>
+                )}
               </CardContent>
               <CardFooter className="border-t border-gray-200 bg-gray-50">
                 <div className="flex justify-end space-x-3 w-full">

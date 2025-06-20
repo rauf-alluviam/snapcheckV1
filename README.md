@@ -230,10 +230,7 @@ SnapCheck is a sophisticated, enterprise-grade inspection management system buil
 - **Field Validation**: Specify which response fields trigger auto-approval
 
 **Bulk Approval Configuration:**
-- **Routine Inspection Grouping**: Automatically group similar inspections
-- **Batch Size Controls**: Define optimal batch sizes for processing
-- **Notification Scheduling**: Configure bulk approval notifications
-- **Workflow Compatibility**: Ensure workflows support batch processing
+- **Feature Removed**: Bulk approval functionality has been removed from the system
 
 **Example Workflow Categories:**
 - **Cargo & Container**: Export/import container inspections
@@ -301,7 +298,7 @@ SnapCheck is a sophisticated, enterprise-grade inspection management system buil
 
 ---
 
-## ⚡ Automation & Batch Processing
+## ⚡ Automation
 
 ### Auto-Approval Engine
 **Intelligent automation for routine inspections**
@@ -332,27 +329,6 @@ SnapCheck is a sophisticated, enterprise-grade inspection management system buil
 3. **Automatic Processing**: Complete approval without manual intervention
 4. **Notification**: Alert stakeholders of auto-approval
 5. **Audit Trail**: Maintain records of automated decisions
-
-### Batch Processing System
-**Efficient handling of routine inspection volumes**
-
-**Batch Creation:**
-- **Automatic Grouping**: Group similar inspections by workflow and date
-- **Size Optimization**: Create appropriate batch sizes for efficient processing
-- **Approver Assignment**: Route batches to designated approvers
-- **Priority Handling**: Manage urgent vs. routine inspection prioritization
-
-**Batch Management:**
-- **Bulk Approval**: Approve entire batches with single action
-- **Bulk Rejection**: Reject batches with centralized comments
-- **Individual Review**: Option to review specific inspections within batch
-- **Partial Processing**: Handle mixed approval/rejection within batches
-
-**Notification System:**
-- **Batch Ready Alerts**: Notify approvers when batches are ready
-- **Frequency Controls**: Configurable notification schedules
-- **Summary Information**: Batch statistics and overview details
-- **Escalation Alerts**: Automatic escalation for overdue batches
 
 ---
 
@@ -588,11 +564,7 @@ GET    /api/inspections/:id/report  # Generate PDF report
 
 ### Batch Processing
 ```
-GET    /api/inspections/batch          # Get pending batches
-GET    /api/inspections/batch/:id      # Get batch details
-PUT    /api/inspections/batch/:id/approve # Bulk approve batch
-PUT    /api/inspections/batch/:id/reject  # Bulk reject batch
-POST   /api/inspections/create-batches    # Trigger batch creation
+# Batch processing functionality has been removed
 ```
 
 ### Reporting & Export

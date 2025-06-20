@@ -82,14 +82,9 @@ const WorkflowSchema = new mongoose.Schema({
   autoApprovalEnabled: {
     type: Boolean,
     default: false
-  },
-  autoApprovalRules: {
+  },  autoApprovalRules: {
     type: AutoApprovalRuleSchema,
     default: () => ({})
-  },
-  bulkApprovalEnabled: {
-    type: Boolean,
-    default: false
   },
   notificationFrequency: {
     type: String,

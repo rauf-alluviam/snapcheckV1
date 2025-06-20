@@ -7,9 +7,7 @@ import {
   Users, 
   Workflow, 
   FileText, 
-  LogOut, 
-  BarChart4,
-  ShieldCheck,
+  LogOut,   BarChart4,
   UserCheck
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -67,13 +65,11 @@ const Sidebar: React.FC = () => {
           {/* Common navigation items for all authenticated users */}
           <NavItem to="/dashboard" icon={<LayoutDashboard size={20} />} label="Dashboard" />
           <NavItem to="/inspections" icon={<ClipboardList size={20} />} label="Inspections" />
-            {/* Admin-only navigation items */}
-          {isAdmin && (
+            {/* Admin-only navigation items */}          {isAdmin && (
             <>
               <NavItem to="/workflows" icon={<Workflow size={20} />} label="Workflows" />
               <NavItem to="/reports" icon={<FileText size={20} />} label="Reports" />
               <NavItem to="/analytics" icon={<BarChart4 size={20} />} label="Analytics" />
-              <NavItem to="/batch-approvals" icon={<ShieldCheck size={20} />} label="Batch Approvals" />
               <NavItem to="/users" icon={<Users size={20} />} label="Users Management" />
               <NavItem to="/settings" icon={<Settings size={20} />} label="System Settings" />
             </>
@@ -82,7 +78,6 @@ const Sidebar: React.FC = () => {
           {isApprover && (
             <>
               <NavItem to="/approvals" icon={<UserCheck size={20} />} label="Approvals" />
-              <NavItem to="/batch-approvals" icon={<ShieldCheck size={20} />} label="Batch Approvals" />
               <NavItem to="/reports" icon={<FileText size={20} />} label="Reports" />
             </>
           )}
@@ -109,10 +104,8 @@ const Sidebar: React.FC = () => {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-900">{user?.name}</p>
               <p className="text-xs font-medium text-gray-500 capitalize">
-                {user?.role}
-                {user?.role === 'admin' && (
+                {user?.role}                {user?.role === 'admin' && (
                   <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                    <ShieldCheck size={10} className="mr-0.5" />
                     Admin
                   </span>
                 )}

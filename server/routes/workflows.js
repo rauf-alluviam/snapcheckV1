@@ -189,11 +189,9 @@ router.get('/categories', auth, async (req, res) => {
 // @desc    Update workflow approval settings
 // @access  Private (Admin only)
 router.patch('/:id/approval-settings', isAdmin, async (req, res) => {
-  try {
-    const {
+  try {    const {
       isRoutineInspection,
       autoApprovalEnabled,
-      bulkApprovalEnabled,
       autoApprovalRules,
       notificationFrequency
     } = req.body;
@@ -208,11 +206,9 @@ router.patch('/:id/approval-settings', isAdmin, async (req, res) => {
     if (workflow.organizationId.toString() !== req.user.organizationId) {
       return res.status(403).json({ message: 'Access denied' });
     }
-    
-    // Update workflow properties
+      // Update workflow properties
     workflow.isRoutineInspection = isRoutineInspection;
     workflow.autoApprovalEnabled = autoApprovalEnabled;
-    workflow.bulkApprovalEnabled = bulkApprovalEnabled;
     
     // Update auto approval rules if provided
     if (autoApprovalRules) {

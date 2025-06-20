@@ -11,7 +11,6 @@ import DashboardPage from './pages/Dashboard/DashboardPage';
 import InspectionsPage from './pages/Inspections/InspectionsPage';
 import InspectionDetailPage from './pages/Inspections/InspectionDetailPage';
 import NewInspectionPage from './pages/Inspections/NewInspectionPage';
-import BatchApprovalsPage from './pages/Inspections/BatchApprovalsPage';
 import WorkflowsPage from './pages/Workflows/WorkflowsPage';
 import WorkflowDetailPage from './pages/Workflows/WorkflowDetailPage';
 import NewWorkflowPage from './pages/Workflows/NewWorkflowPage';
@@ -144,14 +143,7 @@ function App() {
                 <ProtectedRoute 
                   element={<InspectionsPage />} 
                   allowedRoles={['admin', 'approver']}
-                />
-              } />
-              <Route path="batch-approvals" element={
-                <ProtectedRoute 
-                  element={<BatchApprovalsPage />} 
-                  allowedRoles={['admin', 'approver']}
-                />
-              } />
+                />              } />
               
               {/* Inspector-specific routes */}
               <Route path="my-assignments" element={

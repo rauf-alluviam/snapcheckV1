@@ -207,11 +207,9 @@ const WorkflowDetailPage: React.FC = () => {
       </Card>
         {/* Auto-Approval Settings */}
       <AutoApprovalSettings
-        workflowId={workflow._id}
-        initialSettings={{
+        workflowId={workflow._id}        initialSettings={{
           isRoutineInspection: workflow.isRoutineInspection || false,
           autoApprovalEnabled: workflow.autoApprovalEnabled || false,
-          bulkApprovalEnabled: workflow.bulkApprovalEnabled || false,
           autoApprovalRules: workflow.autoApprovalRules || {
             timeRangeStart: '00:00',
             timeRangeEnd: '23:59',

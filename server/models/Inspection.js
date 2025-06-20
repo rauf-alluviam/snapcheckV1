@@ -70,7 +70,7 @@ const InspectionSchema = new mongoose.Schema({
     }
   }],  status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected', 'auto-approved', 'pending-bulk'],
+    enum: ['pending', 'approved', 'rejected', 'auto-approved'],
     default: 'pending'
   },
   rejectionReason: {
@@ -79,14 +79,9 @@ const InspectionSchema = new mongoose.Schema({
   remarks: {
     type: String,
     default: ''
-  },
-  autoApproved: {
+  },  autoApproved: {
     type: Boolean,
     default: false
-  },
-  batchId: {
-    type: String,
-    index: true
   },
   meterReading: {
     type: Number

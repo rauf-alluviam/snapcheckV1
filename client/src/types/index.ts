@@ -47,10 +47,8 @@ export interface Workflow {
   organizationId: string;
   createdBy: string;
   createdAt: string;
-  updatedAt: string;
-  isRoutineInspection?: boolean;
+  updatedAt: string;  isRoutineInspection?: boolean;
   autoApprovalEnabled?: boolean;
-  bulkApprovalEnabled?: boolean;
   autoApprovalRules?: AutoApprovalRule;
   notificationFrequency?: 'immediate' | 'hourly' | 'daily' | 'weekly';
 }
@@ -84,14 +82,12 @@ export interface Inspection {
   inspectorId: string; // Added for explicit inspector tracking
   approverId: string;
   approverName?: string;
-  approvers?: InspectionApprover[]; // Added for multiple approvers
-  status: 'pending' | 'approved' | 'rejected' | 'auto-approved' | 'pending-bulk';
+  approvers?: InspectionApprover[]; // Added for multiple approvers  status: 'pending' | 'approved' | 'rejected' | 'auto-approved';
   organizationId: string;
   inspectionDate: string;
   createdAt: string;
   updatedAt: string;
   autoApproved?: boolean;
-  batchId?: string;
   meterReading?: number;
   readingDate?: string;
 }

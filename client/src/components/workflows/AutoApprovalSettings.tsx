@@ -7,11 +7,9 @@ import Switch from '../../components/ui/Switch';
 import api from '../../utils/api';
 
 interface AutoApprovalSettingsProps {
-  workflowId: string;
-  initialSettings: {
+  workflowId: string;  initialSettings: {
     isRoutineInspection: boolean;
     autoApprovalEnabled: boolean;
-    bulkApprovalEnabled: boolean;
     autoApprovalRules: {
       timeRangeStart: string;
       timeRangeEnd: string;
@@ -229,35 +227,7 @@ const AutoApprovalSettings: React.FC<AutoApprovalSettingsProps> = ({
                 </div>
               </div>
             )}
-            
-            <div className="space-y-2">
-              <label className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">Bulk Approval</span>
-                <Switch
-                  checked={settings.bulkApprovalEnabled}
-                  onChange={(checked) => handleSettingChange('bulkApprovalEnabled', checked)}
-                />
-              </label>
-              <p className="text-xs text-gray-500">Group similar inspections for efficient bulk approval by approvers.</p>
-            </div>
-            
-            {settings.bulkApprovalEnabled && (
-              <div className="space-y-2">
-                <label className="block text-xs font-medium text-gray-700 mb-1">Notification Frequency</label>
-                <Select
-                  options={[
-                    { value: 'immediate', label: 'Immediate' },
-                    { value: 'hourly', label: 'Hourly' },
-                    { value: 'daily', label: 'Daily' },
-                    { value: 'weekly', label: 'Weekly' }
-                  ]}
-                  value={settings.notificationFrequency}
-                  onChange={(value) => handleSettingChange('notificationFrequency', value)}
-                />
-                <p className="text-xs text-gray-500">How often approvers are notified about new batches</p>
-              </div>
-            )}
-          </>
+            </>
         )}
         
         <div className="flex justify-end pt-4">
