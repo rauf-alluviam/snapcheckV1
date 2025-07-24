@@ -38,7 +38,7 @@ const ForgotPasswordForm: React.FC = () => {
     if (formData.email) {
       validation.validate(formData);
     }
-  }, [formData, validation]);
+  }, [formData]);
 
   const onSubmit = async (data: ForgotPasswordFormInputs) => {
     // Clear previous validation errors

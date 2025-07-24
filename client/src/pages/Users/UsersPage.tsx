@@ -218,19 +218,19 @@ const UsersPage: React.FC = () => {
     if (Object.keys(newUserFormData).length > 0) {
       validation.validate(newUserFormData);
     }
-  }, [newUserFormData, validation]);
+  }, [newUserFormData]);
   
   const handleNewUserSubmit = async () => {
     // Validate before submission
-    const validationResult = validation.validate(newUserFormData);
-    if (!validationResult.success) {
-      return;
-    }
+    // const validationResult = validation.validate(newUserFormData);
+    // if (!validationResult.success) {
+    //   return;
+    // }
     
-    setIsSubmitting(true);
+    // setIsSubmitting(true);
     
     try {
-      const response = await api.post('/api/auth/register', {
+      const response = await api.post(`${import.meta.env.VITE_APP_API_STRING}/api/auth/register`, {
         name: newUserFormData.name,
         email: newUserFormData.email,
         password: newUserFormData.password,
@@ -599,7 +599,6 @@ const UsersPage: React.FC = () => {
               value={newUserFormData.email}
               onChange={(e) => setNewUserFormData({ ...newUserFormData, email: e.target.value })}
               error={validation.errors.email}
-              leftIcon={<Mail className="h-5 w-5 text-gray-400" />}
             />
             
             <ValidatedInput

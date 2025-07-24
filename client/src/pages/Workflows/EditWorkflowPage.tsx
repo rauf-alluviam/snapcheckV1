@@ -74,7 +74,7 @@ const EditWorkflowPage: React.FC = () => {
     if (formData.name || formData.category || formData.description || (formData.steps && formData.steps.length > 0)) {
       validation.validate(formData);
     }
-  }, [formData, validation]);
+  }, [formData]);
 
   // Check if current user can edit this workflow
   const canEdit = isAdmin || (workflow && workflow.createdBy === user?._id);

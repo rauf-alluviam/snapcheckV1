@@ -8,6 +8,7 @@ interface ValidatedInputProps extends React.InputHTMLAttributes<HTMLInputElement
   showValidation?: boolean;
   helpText?: string;
   required?: boolean;
+  leftIcon?: React.ReactNode;
 }
 
 const ValidatedInput = forwardRef<HTMLInputElement, ValidatedInputProps>(
@@ -18,6 +19,7 @@ const ValidatedInput = forwardRef<HTMLInputElement, ValidatedInputProps>(
     showValidation = false, 
     helpText, 
     required, 
+    leftIcon,
     className, 
     ...props 
   }, ref) => {
@@ -32,11 +34,19 @@ const ValidatedInput = forwardRef<HTMLInputElement, ValidatedInputProps>(
         </label>
         
         <div className="relative">
+          {leftIcon && (
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              {leftIcon}
+            </div>
+          )}
+          
           <input
             ref={ref}
             className={`
-              block w-full px-3 py-2 border rounded-md shadow-sm 
+              block w-full py-2 border rounded-md shadow-sm 
               placeholder-gray-400 focus:outline-none focus:ring-1 transition-colors
+              ${leftIcon ? 'pl-10' : 'pl-3'}
+              ${hasError ? 'pr-10' : 'pr-3'}
               ${hasError 
                 ? 'border-red-300 focus:border-red-500 focus:ring-red-500' 
                 : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'

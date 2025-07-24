@@ -163,7 +163,7 @@ const InspectionsPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
   
   // Group by workflow state
-  const [groupByWorkflow, setGroupByWorkflow] = useState(true);
+  const [groupByWorkflow, setGroupByWorkflow] = useState(false);
   const [expandedWorkflows, setExpandedWorkflows] = useState<Record<string, boolean>>({});
 
   const handleGroupByWorkflowChange = (newValue: boolean) => {

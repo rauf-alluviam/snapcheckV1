@@ -47,12 +47,15 @@ const LoginForm: React.FC = () => {
     }
   }, [isAuthenticated, navigate, from]);
 
-  // Real-time validation on form changes
+  // Real-time validation on form changes (debounced)
   useEffect(() => {
-    if (formData.email || formData.password) {
-      validation.validate(formData);
-    }
-  }, [formData, validation]);
+    const handler = setTimeout(() => {
+      if (formData.email || formData.password) {
+        validation.validate(formData);
+      }
+    }, 200);
+    return () => clearTimeout(handler);
+  }, [formData]);
 
   const onSubmit = async (data: LoginFormInputs) => {
     // Validate before submission

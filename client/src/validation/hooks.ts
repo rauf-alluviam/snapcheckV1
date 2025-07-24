@@ -52,7 +52,6 @@ export function useValidation<T>(
   schema: z.ZodSchema<T>,
   options: UseValidationOptions = {}
 ): UseValidationReturn<T> {
-  const { validateOnChange = false, validateOnBlur = true } = options;
   
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -172,7 +171,7 @@ export function useFormValidation<T>(
       values: result.data,
       errors: {}
     };
-  }, [validation]);
+  }, []);
 
   return {
     ...validation,

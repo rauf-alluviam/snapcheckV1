@@ -45,7 +45,7 @@ const ChangePasswordForm: React.FC = () => {
     if (formData.currentPassword || formData.newPassword || formData.confirmPassword) {
       validation.validate(formData);
     }
-  }, [formData, validation]);
+  }, [formData]);
 
   const toggleCurrentPasswordVisibility = () => {
     setShowCurrentPassword(!showCurrentPassword);
@@ -141,9 +141,8 @@ const ChangePasswordForm: React.FC = () => {
                 required: 'Current password is required'
               })}
               error={errors.currentPassword?.message || validation.errors.currentPassword}
-              className="pr-12" // Add padding for the toggle button
+              className="pr-12"
             />
-            {/* Show/Hide Password Button */}
             <button 
               type="button" 
               className="absolute right-3 top-8 transform text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600 transition-colors p-2"
@@ -172,7 +171,6 @@ const ChangePasswordForm: React.FC = () => {
               error={errors.newPassword?.message || validation.errors.newPassword}
               className="pr-12"
             />
-            {/* Show/Hide Password Button */}
             <button 
               type="button" 
               className="absolute right-3 top-8 transform text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600 transition-colors p-2"
@@ -205,112 +203,11 @@ const ChangePasswordForm: React.FC = () => {
               error={errors.confirmPassword?.message || validation.errors.confirmPassword}
               className="pr-12"
             />
-            {/* Show/Hide Password Button */}
             <button 
               type="button" 
               className="absolute right-3 top-8 transform text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600 transition-colors p-2"
               onClick={toggleConfirmPasswordVisibility}
               tabIndex={-1}
-            >
-              {showConfirmPassword ? (
-                <EyeOff className="h-5 w-5" />
-              ) : (
-                <Eye className="h-5 w-5" />
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex justify-end">
-        <Button 
-          type="submit" 
-          variant="primary"
-          size="md"
-          isLoading={loading}
-          disabled={loading}
-        >
-          Change Password
-        </Button>
-      </div>
-    </form>
-  );
-};
-
-export default ChangePasswordForm;
-            <button 
-              type="button" 
-              className="absolute right-3 top-11 transform text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600 transition-colors"
-              onClick={toggleCurrentPasswordVisibility}
-              tabIndex={-1} // Prevent tab focus
-            >
-              {showCurrentPassword ? (
-                <EyeOff className="h-5 w-5" />
-              ) : (
-                <Eye className="h-5 w-5" />
-              )}
-            </button>
-          </div>
-        </div>
-        
-        {/* New Password Field */}
-        <div className="flex items-center space-x-3">
-          <div className="flex-shrink-0">
-            <Lock className="mt-5 h-5 w-5 text-gray-400" />
-          </div>
-          <div className="flex-1 relative">
-            <Input
-              label="New Password"
-              type={showNewPassword ? 'text' : 'password'}
-              {...register('newPassword', { 
-                required: 'New password is required',
-                minLength: {
-                  value: 6,
-                  message: 'Password must be at least 6 characters'
-                }
-              })}
-              error={errors.newPassword?.message}
-              className="pr-12" // Add padding for the toggle button
-            />
-            {/* Show/Hide Password Button */}
-            <button 
-              type="button" 
-              className="absolute right-3 top-11 transform text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600 transition-colors"
-              onClick={toggleNewPasswordVisibility}
-              tabIndex={-1} // Prevent tab focus
-            >
-              {showNewPassword ? (
-                <EyeOff className="h-5 w-5" />
-              ) : (
-                <Eye className="h-5 w-5" />
-              )}
-            </button>
-          </div>
-        </div>
-        
-        {/* Confirm New Password Field */}
-        <div className="flex items-center space-x-3">
-          <div className="flex-shrink-0">
-            <Lock className="mt-5 h-5 w-5 text-gray-400" />
-          </div>
-          <div className="flex-1 relative">
-            <Input
-              label="Confirm New Password"
-              type={showConfirmPassword ? 'text' : 'password'}
-              {...register('confirmPassword', { 
-                required: 'Please confirm your new password',
-                validate: (value) => 
-                  value === watch('newPassword') || 'Passwords do not match'
-              })}
-              error={errors.confirmPassword?.message}
-              className="pr-12" // Add padding for the toggle button
-            />
-            {/* Show/Hide Password Button */}
-            <button 
-              type="button" 
-              className="absolute right-3 top-11 transform text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600 transition-colors"
-              onClick={toggleConfirmPasswordVisibility}
-              tabIndex={-1} // Prevent tab focus
             >
               {showConfirmPassword ? (
                 <EyeOff className="h-5 w-5" />

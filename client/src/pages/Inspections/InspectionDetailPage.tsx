@@ -250,7 +250,7 @@ const InspectionDetailPage: React.FC = () => {
                         <div className="flex items-center">
                           <User className="h-4 w-4 mr-1 text-gray-500" />
                           <span>{approver.userName || 'Unknown'}</span>                          {approver.userId === inspection.assignedTo && (
-                            <Badge variant="secondary" className="ml-2 text-xs">Creator</Badge>
+                            <Badge className="ml-2 text-xs">Creator</Badge>
                           )}                          {adminApprover?.userId === approver.userId && isCreatedByApprover && (
                             <Badge variant="warning" className="ml-2 text-xs">Admin Approval Required</Badge>
                           )}
@@ -336,7 +336,7 @@ const InspectionDetailPage: React.FC = () => {
         title="Approve Inspection"
       >
         <div className="space-y-4">          <TextArea
-            label="Remarks (Optional)"
+            label="Remarks "
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
             rows={4}

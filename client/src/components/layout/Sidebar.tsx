@@ -64,10 +64,10 @@ const Sidebar: React.FC = () => {
         <nav className="flex-1 px-2 space-y-1">
           {/* Common navigation items for all authenticated users */}
           <NavItem to="/dashboard" icon={<LayoutDashboard size={20} />} label="Dashboard" />
+           <NavItem to="/workflows" icon={<Workflow size={20} />} label="Workflows" />
           <NavItem to="/inspections" icon={<ClipboardList size={20} />} label="Inspections" />
             {/* Admin-only navigation items */}          {isAdmin && (
             <>
-              <NavItem to="/workflows" icon={<Workflow size={20} />} label="Workflows" />
               <NavItem to="/reports" icon={<FileText size={20} />} label="Reports" />
               <NavItem to="/analytics" icon={<BarChart4 size={20} />} label="Analytics" />
               <NavItem to="/users" icon={<Users size={20} />} label="Users Management" />

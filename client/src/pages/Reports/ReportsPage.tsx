@@ -17,11 +17,8 @@ interface FilterOption {
   options: Array<{ value: string; label: string }>;
 }
 
-const ReportsPage: React.FC = () => {
-  const { state } = useAuth();
+const ReportsPage: React.FC = () => {  const { state } = useAuth();
   const { user } = state;
-  const isAdmin = user?.role === 'admin';
-  const isApprover = user?.role === 'approver';
   
   const [selectedReport, setSelectedReport] = useState('inspection-summary');
   const [dateRange, setDateRange] = useState({
@@ -34,8 +31,7 @@ const ReportsPage: React.FC = () => {
   const [filters, setFilters] = useState<Record<string, string>>({});
     // Use validation for report generation
   const validation = useValidation(reportSchemas.inspectionSummary);
-  
-  // Validate form data whenever it changes
+    // Validate form data whenever it changes
   useEffect(() => {
     const reportData = {
       startDate: new Date(dateRange.startDate).toISOString(),
@@ -44,7 +40,7 @@ const ReportsPage: React.FC = () => {
       ...filters
     };
     validation.validate(reportData);
-  }, [dateRange, format, filters, validation]);
+  }, [dateRange, format, filters]);
   
   const reportOptions = [
     { value: 'inspection-summary', label: 'Inspection Summary Report', access: ['admin', 'approver'] },

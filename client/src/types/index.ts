@@ -82,6 +82,7 @@ export interface Inspection {
   inspectorId: string; // Added for explicit inspector tracking
   approverId: string;
   approverName?: string;
+    status: string; // <-- Add this line
   approvers?: InspectionApprover[]; // Added for multiple approvers  status: 'pending' | 'approved' | 'rejected' | 'auto-approved';
   organizationId: string;
   inspectionDate: string;

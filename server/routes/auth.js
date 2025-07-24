@@ -344,7 +344,7 @@ router.post('/reset-password/:token', validateUser.resetPassword, validatePasswo
 // @route   POST api/auth/change-password
 // @desc    Change password when logged in
 // @access  Private
-router.post('/change-password', auth, validateUser.changePassword, validatePasswordStrength, async (req, res) => {
+router.post('/change-password', auth,  validatePasswordStrength, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     

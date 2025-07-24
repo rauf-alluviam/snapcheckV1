@@ -59,7 +59,7 @@ const UserRegistrationForm: React.FC<UserRegistrationFormProps> = ({
     if (Object.keys(watchedValues).length > 0) {
       validation.validate(watchedValues);
     }
-  }, [watchedValues, validation]);
+  }, [watchedValues]);
 
   const onSubmit = async (data: RegistrationFormData) => {
     // Client-side validation
@@ -78,7 +78,9 @@ const UserRegistrationForm: React.FC<UserRegistrationFormProps> = ({
       }
     } catch (error: any) {
       // Handle validation errors from server
-      const hasValidationErrors = handleApiValidationErrors(error, setError);
+      const hasValidationErrors = handleApiValidationErrors(error, (field: string, message: string) => {
+        setError(field as keyof RegistrationFormData, { type: 'manual', message });
+      });
       
       if (!hasValidationErrors) {
         const errorMessage = getErrorMessage(error);
